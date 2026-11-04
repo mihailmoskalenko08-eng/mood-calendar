@@ -45,6 +45,8 @@ export interface Data {
   palette: string
   onboarded: boolean
   lastBackup?: number
+  /** не напоминать о копии до этого времени */
+  backupSnoozed?: number
   createdAt: number
 }
 

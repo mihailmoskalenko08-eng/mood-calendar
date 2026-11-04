@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addDays, diffDays, humanDate, isValidKey, monthGrid, plural, relativeLabel, weekdayMon } from '../src/lib/dates'
 import { contrast, inkOn, rampColors, sampleRamp } from '../src/lib/color'
 import { defaultData, levelAtScore, makeLevels, recolor, removeLevel, scoreOf, type Data } from '../src/lib/model'
-import { exportCsv, load, merge, sanitize, save, type Store } from '../src/lib/storage'
+import { backupDue, exportCsv, load, merge, sanitize, save, type Store } from '../src/lib/storage'
 import {
   average, currentStreak, distribution, extremeMonths, isGood, longestRun, monthlyAverages,
   tagInsights, weekdayAverages, yearRange, entriesIn, elapsedDays
@@ -229,5 +229,27 @@ describe('статистика', () => {
     expect(elapsedDays(yearRange(2026), '2026-01-10')).toBe(10)
     expect(elapsedDays(yearRange(2026), '2025-12-10')).toBe(0)
     expect(elapsedDays(yearRange(2025), '2026-01-10')).toBe(365)
+  })
+})
+
+describe('напоминание о копии', () => {
+  const DAY = 86400000
+  const many = () => {
+    const d = defaultData(0)
+    for (let i = 1; i <= 20; i++) d.entries[`2026-01-${String(i).padStart(2, '0')}`] = { level: d.levels[3].id, at: 1 }
+    return d
+  }
+  it('не беспокоит, пока мало отметок или копия свежая', () => {
+    expect(backupDue(defaultData(0), 100 * DAY)).toBe(false)
+    const d = many()
+    d.lastBackup = 90 * DAY
+    expect(backupDue(d, 100 * DAY)).toBe(false)
+  })
+  it('напоминает через месяц и умеет откладывать', () => {
+    const d = many()
+    expect(backupDue(d, 40 * DAY)).toBe(true)
+    d.backupSnoozed = 45 * DAY
+    expect(backupDue(d, 40 * DAY)).toBe(false)
+    expect(backupDue(d, 46 * DAY)).toBe(true)
   })
 })

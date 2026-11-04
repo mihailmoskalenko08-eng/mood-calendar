@@ -292,6 +292,10 @@ export function finishOnboarding() {
   update(d => ({ ...d, onboarded: true }))
 }
 
+export function snoozeBackup(days = 7) {
+  update(d => ({ ...d, backupSnoozed: Date.now() + days * 86400000 }))
+}
+
 export function markBackedUp() {
   update(d => ({ ...d, lastBackup: Date.now() }))
 }

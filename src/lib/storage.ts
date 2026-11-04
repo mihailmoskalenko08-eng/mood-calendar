@@ -92,6 +92,7 @@ export function sanitize(raw: unknown): Data {
     palette,
     onboarded: r.onboarded !== false,
     lastBackup: typeof r.lastBackup === 'number' ? r.lastBackup : undefined,
+    backupSnoozed: typeof r.backupSnoozed === 'number' ? r.backupSnoozed : undefined,
     createdAt: typeof r.createdAt === 'number' ? r.createdAt : Date.now()
   }
 }
@@ -235,4 +236,13 @@ export function exportCsv(data: Data): string {
     rows.push([k, l?.name ?? '', String(i + 1), l?.color ?? '', tags, e.note ?? ''])
   }
   return '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\n')
+}
+
+/** Пора ли напомнить о копии: есть что терять, а копии давно не было. */
+export function backupDue(d: Data, now = Date.now()): boolean {
+  const marked = Object.keys(d.entries).length
+  if (marked < 14) return false
+  if (d.backupSnoozed && now < d.backupSnoozed) return false
+  const since = d.lastBackup ?? d.createdAt
+  return now - since > 30 * 86400000
 }

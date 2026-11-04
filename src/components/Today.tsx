@@ -6,7 +6,8 @@ import {
 } from '../lib/dates'
 import { currentStreak } from '../lib/stats'
 import { plural } from '../lib/dates'
-import { data, focusDay, levelOf, levelsById, sheetDay, today } from '../state'
+import { backupDue, saveBackup } from '../backup'
+import { data, focusDay, levelOf, levelsById, sheetDay, snoozeBackup, today } from '../state'
 import { ClearDay, NoteField, ScalePicker, TagPicker } from './DayEditor'
 import { IconLeft, IconRight } from './icons'
 import { useSwipe } from './ui'
@@ -66,6 +67,16 @@ export function Today() {
           <NoteField key={day} day={day} />
           <TagPicker day={day} />
           <ClearDay day={day} />
+        </div>
+      )}
+
+      {day === now && backupDue(d) && (
+        <div class="nudge nudge--backup">
+          <span>Месяц без резервной копии. Отметки живут только на этом телефоне — сохраните копию в «Файлы».</span>
+          <span class="row-actions">
+            <button class="pill-btn" onClick={() => saveBackup()}>Сохранить копию</button>
+            <button class="pill-btn ghost" onClick={() => snoozeBackup(7)}>Позже</button>
+          </span>
         </div>
       )}
 

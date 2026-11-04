@@ -1,9 +1,11 @@
 // Первое знакомство: живая картинка года и выбор палитры.
 
-import { useEffect, useMemo, useState } from 'preact/hooks'
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { readBackup } from '../backup'
+import { plural } from '../lib/dates'
 import { rampColors } from '../lib/color'
 import { PALETTES } from '../lib/model'
-import { applyPalette, data, finishOnboarding, resetScale } from '../state'
+import { applyPalette, data, finishOnboarding, replaceAll, resetScale, showToast } from '../state'
 
 export function Onboarding() {
   const d = data.value
@@ -29,6 +31,22 @@ export function Onboarding() {
     return () => clearInterval(t)
   }, [])
 
+  const file = useRef<HTMLInputElement>(null)
+  const restore = async (e: Event) => {
+    const input = e.target as HTMLInputElement
+    const f = input.files?.[0]
+    input.value = ''
+    if (!f) return
+    try {
+      const next = await readBackup(f)
+      replaceAll(next)
+      const n = Object.keys(next.entries).length
+      showToast(`Загружено: ${n} ${plural(n, 'день', 'дня', 'дней')} в цвете`)
+    } catch (err) {
+      showToast((err as Error).message)
+    }
+  }
+
   const done = () => {
     if (n !== d.levels.length) resetScale(n, pal)
     else applyPalette(pal)
@@ -50,6 +68,8 @@ export function Onboarding() {
           <h1 class="display onboard-title">Оттенки</h1>
           <p class="onboard-lead">Каждый вечер — один цвет: каким был день. Через месяц это узор, через год — картина твоей жизни.</p>
           <button class="cta" onClick={() => setStep(1)}>Дальше</button>
+          <button class="link-btn onboard-restore" onClick={() => file.current?.click()}>Уже вели «Оттенки»? Загрузить копию</button>
+          <input ref={file} type="file" accept="application/json,.json" hidden onChange={restore} />
         </div>
       ) : (
         <div class="onboard-text">

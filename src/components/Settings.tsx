@@ -2,17 +2,19 @@
 
 import { useRef, useState } from 'preact/hooks'
 import { inkOn, isHex, rampColors } from '../lib/color'
-import { plural, todayKey } from '../lib/dates'
+import { plural } from '../lib/dates'
 import { MAX_LEVELS, MAX_TAGS, MIN_LEVELS, PALETTES, countByLevel } from '../lib/model'
-import { shareOrDownload } from '../lib/poster'
-import { exportCsv, exportJson, sanitize } from '../lib/storage'
+import type { Data } from '../lib/model'
+import { readBackup, saveBackup } from '../backup'
 import {
-  addLevel, addTag, applyPalette, data, deleteLevel, deleteTag, markBackedUp, mergeIn, moveLevel, renameLevel,
+  addLevel, addTag, applyPalette, data, deleteLevel, deleteTag, mergeIn, moveLevel, renameLevel,
   renameTag, replaceAll, resetScale, setLevelColor, setSetting, showToast
 } from '../state'
 import { defaultData } from '../lib/model'
 import { IconClose, IconDown, IconPlus, IconShare, IconTrash, IconUp } from './icons'
 import { ConfirmButton, Segmented, Switch } from './ui'
+import { Keypad, PIN_LENGTH, PinDots } from './Lock'
+import { checkPin, clearLock, lockAvailable, readLock, setPin } from '../lib/lock'
 
 export const SWATCHES = [
   '#E3263A', '#F0544F', '#FF7A3D', '#FFA62B', '#FFC53D', '#F3E37C', '#C6E85A', '#8FD14F',
@@ -38,6 +40,7 @@ export function Settings() {
       <TagsEditor />
       <Look />
       <Reminder />
+      <PinSection />
       <DataSection />
       <About />
     </section>
@@ -251,20 +254,11 @@ function Reminder() {
 function DataSection() {
   const d = data.value
   const file = useRef<HTMLInputElement>(null)
-  const [pending, setPending] = useState<ReturnType<typeof sanitize> | null>(null)
+  const [pending, setPending] = useState<Data | null>(null)
   const total = Object.keys(d.entries).length
   const days = d.lastBackup ? Math.floor((Date.now() - d.lastBackup) / 86400000) : null
-  const stamp = todayKey()
 
-  const exportFile = async (kind: 'json' | 'csv') => {
-    const text = kind === 'json' ? exportJson(d) : exportCsv(d)
-    const blob = new Blob([text], { type: kind === 'json' ? 'application/json' : 'text/csv' })
-    const r = await shareOrDownload(blob, `ottenki-${stamp}.${kind}`, 'Копия «Оттенков»')
-    if (r !== 'cancelled') {
-      if (kind === 'json') markBackedUp()
-      if (r === 'downloaded') showToast('Файл сохранён')
-    }
-  }
+  const exportFile = (kind: 'json' | 'csv') => saveBackup(kind)
 
   const onFile = async (e: Event) => {
     const input = e.target as HTMLInputElement
@@ -272,11 +266,9 @@ function DataSection() {
     input.value = ''
     if (!f) return
     try {
-      if (f.size > 20 * 1024 * 1024) throw new Error('Файл слишком большой')
-      const parsed = sanitize(JSON.parse(await f.text()))
-      setPending(parsed)
+      setPending(await readBackup(f))
     } catch (err) {
-      showToast(err instanceof SyntaxError ? 'Это не файл копии (нужен .json)' : (err as Error).message || 'Не удалось прочитать файл')
+      showToast((err as Error).message || 'Не удалось прочитать файл')
     }
   }
 
@@ -322,6 +314,67 @@ function About() {
       <p class="display about-name">Оттенки</p>
       <p class="muted">Каждый день — один цвет. Версия {__APP_VERSION__}.</p>
       <p class="muted">Без регистрации, рекламы и серверов: отметки не покидают ваш телефон.</p>
+    </div>
+  )
+}
+
+type PinStep = 'idle' | 'new' | 'repeat' | 'current'
+
+function PinSection() {
+  const [has, setHas] = useState(() => !!readLock())
+  const [step, setStep] = useState<PinStep>('idle')
+  const [pin, setPinValue] = useState('')
+  const [first, setFirst] = useState('')
+  const [error, setError] = useState(false)
+  const [after, setAfter] = useState<'change' | 'remove'>('change')
+
+  if (!lockAvailable()) return null
+
+  const reset = () => { setStep('idle'); setPinValue(''); setFirst(''); setError(false) }
+  const fail = () => { setError(true); setTimeout(() => { setError(false); setPinValue('') }, 520) }
+
+  const onDigit = async (dgt: string) => {
+    const next = pin.length < PIN_LENGTH ? pin + dgt : pin
+    setPinValue(next)
+    if (next.length < PIN_LENGTH) return
+    if (step === 'new') { setFirst(next); setPinValue(''); setStep('repeat') }
+    else if (step === 'repeat') {
+      if (next !== first) { showToast('Коды не совпали — попробуйте ещё раз'); setFirst(''); setPinValue(''); setStep('new'); return }
+      await setPin(next)
+      setHas(true)
+      reset()
+      showToast('Код установлен. Его спросят при запуске и после 30 секунд вне приложения')
+    } else if (step === 'current') {
+      if (!(await checkPin(next))) return fail()
+      if (after === 'remove') { clearLock(); setHas(false); reset(); showToast('Код снят') }
+      else { setPinValue(''); setStep('new') }
+    }
+  }
+
+  const prompt = step === 'new' ? 'Придумайте код из 4 цифр' : step === 'repeat' ? 'Повторите код' : 'Введите текущий код'
+  return (
+    <div class="card">
+      <h2 class="card-title">Код-пароль</h2>
+      <p class="muted card-sub">Закрывает дневник от случайного взгляда, если кто-то возьмёт телефон. Отметки им не шифруются.</p>
+      {step === 'idle' ? (
+        <div class="row-actions">
+          {has ? (
+            <>
+              <button class="pill-btn ghost" onClick={() => { setAfter('change'); setStep('current') }}>Сменить код</button>
+              <button class="pill-btn ghost" onClick={() => { setAfter('remove'); setStep('current') }}>Снять код</button>
+            </>
+          ) : (
+            <button class="pill-btn" onClick={() => setStep('new')}>Задать код</button>
+          )}
+        </div>
+      ) : (
+        <div class="pin-setup">
+          <p class="pin-prompt">{error ? 'Неверный код' : prompt}</p>
+          <PinDots value={pin} error={error} />
+          <Keypad onDigit={onDigit} onBack={() => setPinValue(p => p.slice(0, -1))} disabled={error} />
+          <button class="link-btn link-btn--muted" onClick={reset}>Отмена</button>
+        </div>
+      )}
     </div>
   )
 }
