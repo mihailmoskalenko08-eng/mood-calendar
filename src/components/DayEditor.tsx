@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { inkOn, withAlpha } from '../lib/color'
-import type { DayKey } from '../lib/dates'
+import { plural, type DayKey } from '../lib/dates'
+import { confetti, MILESTONES } from '../lib/confetti'
+import { currentStreak } from '../lib/stats'
 import { haptic } from '../lib/haptic'
 import { MAX_NOTE } from '../lib/model'
-import { clearDay, data, flushSave, go, mark, setNote, showToast, toggleTag } from '../state'
+import { clearDay, data, flushSave, go, mark, setNote, showToast, today, toggleTag } from '../state'
 import { IconCheck } from './icons'
 
 export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: boolean }) {
@@ -18,10 +20,17 @@ export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: b
     haptic()
     if (id === current) return
     const level = d.levels.find(l => l.id === id)!
+    const wasMarked = !!current
     const undo = mark(day, id)
     setBurst(id)
     setTimeout(() => setBurst(b => (b === id ? null : b)), 700)
-    showToast(`${level.name}`, { label: 'Отменить', run: undo }, 5000)
+    const streak = wasMarked ? 0 : currentStreak(data.value, today.value)
+    if (MILESTONES.includes(streak)) {
+      confetti(data.value.levels.map(l => l.color))
+      showToast(`${streak} ${plural(streak, 'день', 'дня', 'дней')} подряд — так держать`, { label: 'Отменить', run: undo }, 5000)
+    } else {
+      showToast(`${level.name}`, { label: 'Отменить', run: undo }, 5000)
+    }
   }
 
   return (
