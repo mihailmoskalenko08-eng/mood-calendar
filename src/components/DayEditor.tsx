@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { inkOn, withAlpha } from '../lib/color'
-import { plural, type DayKey } from '../lib/dates'
+import { capitalize, humanDate, plural, relativeLabel, type DayKey } from '../lib/dates'
 import { confetti, MILESTONES } from '../lib/confetti'
 import { currentStreak } from '../lib/stats'
 import { haptic } from '../lib/haptic'
-import { MAX_NOTE } from '../lib/model'
-import { clearDay, data, flushSave, go, mark, setNote, sheetDay, showToast, today, toggleTag } from '../state'
+import { MAX_NOTE, MAX_TAGS } from '../lib/model'
+import { addTag, clearDay, data, flushSave, mark, setNote, showToast, today, toggleTag } from '../state'
 import { IconCheck } from './icons'
 
 export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: boolean }) {
@@ -30,7 +30,8 @@ export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: b
       confetti(data.value.levels.map(l => l.color))
       showToast(`${streak} ${plural(streak, 'день', 'дня', 'дней')} подряд — так держать`, { label: 'Отменить', run: undo }, 5000)
     } else {
-      showToast(`${level.name}`, { label: 'Отменить', run: undo }, 5000)
+      const when = relativeLabel(day, today.value) ?? humanDate(day, today.value)
+      showToast(`${capitalize(when)} — ${level.name.toLowerCase()}`, { label: 'Отменить', run: undo }, 5000)
     }
   }
 
@@ -130,9 +131,6 @@ export function TagPicker({ day }: { day: DayKey }) {
   const d = data.value
   const entry = d.entries[day]
   if (!entry) return null
-  if (!d.tags.length) {
-    return <button class="link-btn" onClick={() => { sheetDay.value = null; go('settings') }}>Добавить метки в настройках</button>
-  }
   const color = d.levels.find(l => l.id === entry.level)?.color ?? '#888888'
   return (
     <div class="tags" role="group" aria-label="Метки дня" style={{ '--c': color, '--ink-on': inkOn(color) } as Record<string, string>}>
@@ -145,7 +143,34 @@ export function TagPicker({ day }: { day: DayKey }) {
           </button>
         )
       })}
+      <NewTag day={day} />
     </div>
+  )
+}
+
+/** «+ Своя» — новая метка прямо со дня; сразу ставится на этот день. */
+function NewTag({ day }: { day: DayKey }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  if (data.value.tags.length >= MAX_TAGS) return null
+  if (!open) return <button class="tag tag--add" onClick={() => setOpen(true)}>+ Своя</button>
+  const done = () => {
+    const n = name.trim()
+    if (n) {
+      if (addTag(n)) {
+        const t = data.value.tags.find(x => x.name === n.slice(0, 32))
+        if (t) toggleTag(day, t.id)
+      } else showToast('Такая метка уже есть')
+    }
+    setName('')
+    setOpen(false)
+  }
+  return (
+    <input class="tag tag-input" value={name} maxLength={32} placeholder="Название" aria-label="Новая метка"
+      ref={el => { if (el && document.activeElement !== el) el.focus() }}
+      onInput={e => setName((e.target as HTMLInputElement).value)}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); done() } else if (e.key === 'Escape') { setName(''); setOpen(false) } }}
+      onBlur={done} />
   )
 }
 
@@ -154,10 +179,10 @@ export function ClearDay({ day, after }: { day: DayKey; after?: () => void }) {
   return (
     <button class="link-btn link-btn--muted" onClick={() => {
       const undo = clearDay(day)
-      showToast('Отметка удалена', { label: 'Вернуть', run: undo })
+      showToast('День стёрт', { label: 'Вернуть', run: undo })
       after?.()
     }}>
-      Убрать отметку
+      Стереть день — цвет, заметку и метки
     </button>
   )
 }

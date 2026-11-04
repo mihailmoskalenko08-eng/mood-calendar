@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { addDays, diffDays, humanDate, isValidKey, monthGrid, plural, relativeLabel, weekdayMon } from '../src/lib/dates'
 import { contrast, inkOn, rampColors, sampleRamp } from '../src/lib/color'
-import { defaultData, levelAtScore, makeLevels, recolor, removeLevel, scoreOf, type Data } from '../src/lib/model'
+import { defaultData, levelAtScore, makeLevels, planRescale, recolor, removeLevel, scoreOf, type Data } from '../src/lib/model'
 import { backupDue, exportCsv, load, merge, sanitize, save, type Store } from '../src/lib/storage'
 import {
   average, currentStreak, distribution, extremeMonths, isGood, longestRun, monthlyAverages,
@@ -89,6 +89,16 @@ describe('модель', () => {
     expect(r.entries['2026-01-02'].level).toBe(d.levels[2].id)
     const r0 = removeLevel(d, d.levels[0].id)
     expect(r0.entries['2026-01-01'].level).toBe(d.levels[1].id)
+  })
+  it('смена числа уровней сохраняет свои названия, где можно', () => {
+    const l = makeLevels(7)
+    l[5].name = 'Норм+'
+    const p = planRescale(l, 5)
+    expect(p.target).toEqual([0, 1, 1, 2, 3, 3, 4])
+    expect(p.names[3]).toBe('Хорошо') // на место 3 приходят двое — стандартное название
+    const q = planRescale(l, 7)
+    expect(q.names[5]).toBe('Норм+')
+    expect(planRescale(makeLevels(5), 10).target).toEqual([0, 2, 5, 7, 9])
   })
   it('оценка 0..1 и обратно', () => {
     const d = defaultData()

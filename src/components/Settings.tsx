@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { inkOn, isHex, rampColors } from '../lib/color'
 import { plural } from '../lib/dates'
-import { MAX_LEVELS, MAX_TAGS, MIN_LEVELS, PALETTES, countByLevel } from '../lib/model'
+import { MAX_LEVELS, MAX_TAGS, MIN_LEVELS, PALETTES, countByLevel, planRescale } from '../lib/model'
 import type { Data } from '../lib/model'
 import { readBackup, saveBackup } from '../backup'
 import {
@@ -13,6 +13,7 @@ import {
 import { defaultData } from '../lib/model'
 import { IconClose, IconDown, IconPlus, IconShare, IconTrash, IconUp } from './icons'
 import { ConfirmButton, Segmented, Switch } from './ui'
+import { isStandalone } from '../lib/env'
 import { Keypad, PIN_LENGTH, PinDots } from './Lock'
 import { checkPin, clearLock, hasLock, lockAvailable, setPin } from '../lib/lock'
 
@@ -21,10 +22,6 @@ export const SWATCHES = [
   '#4CB963', '#14A090', '#2EC4B6', '#5FB3D3', '#3A86FF', '#3559D6', '#2E4A7D', '#1C2541',
   '#5E4AE3', '#9A3E9C', '#C2577E', '#FF8FAB', '#8E8AA8', '#A39E93', '#5B5852', '#1E1E1E'
 ]
-
-const isStandalone = () =>
-  typeof window !== 'undefined' &&
-  (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true)
 
 export function Settings() {
   return (
@@ -104,7 +101,7 @@ function ScaleEditor() {
                   if (v) renameLevel(l.id, v)
                   else (e.target as HTMLInputElement).value = l.name
                 }} />
-              <span class="level-count" title="Сколько дней отмечено">{counts[l.id] || ''}</span>
+              <span class="level-count">{counts[l.id] ? `${counts[l.id]} дн.` : ''}</span>
               <button class="icon-btn sm" onClick={() => moveLevel(l.id, 1)} disabled={i === 0} aria-label={`Поднять «${l.name}» выше`}><IconUp size={18} /></button>
               <button class="icon-btn sm" onClick={() => moveLevel(l.id, -1)} disabled={i === levels.length - 1} aria-label={`Опустить «${l.name}» ниже`}><IconDown size={18} /></button>
               {d.levels.length > MIN_LEVELS && (
@@ -121,7 +118,7 @@ function ScaleEditor() {
       </ul>
       <div class="row-actions">
         {d.levels.length < MAX_LEVELS && (
-          <button class="pill-btn" onClick={addLevel}><IconPlus size={18} /> Уровень сверху</button>
+          <button class="pill-btn" onClick={addLevel}><IconPlus size={18} /> Лучший уровень</button>
         )}
         <ResetScale />
       </div>
@@ -131,7 +128,7 @@ function ScaleEditor() {
 
 function ColorPicker({ value, onPick }: { value: string; onPick: (c: string) => void }) {
   return (
-    <div class="picker">
+    <div class="picker" ref={el => { if (el && !el.dataset.shown) { el.dataset.shown = '1'; setTimeout(() => el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60) } }}>
       <div class="picker-grid">
         {SWATCHES.map((c, i) => (
           <button key={c} class={`picker-c${c === value.toUpperCase() ? ' is-on' : ''}`} style={{ background: c }}
@@ -165,15 +162,39 @@ function ResetScale() {
       <div class="palette-strip palette-strip--wide">
         {rampColors(PALETTES.find(p => p.id === d.palette)?.stops ?? PALETTES[0].stops, n).map((c, i) => <i key={i} style={{ background: c }} />)}
       </div>
-      <p class="muted card-sub">Шкала соберётся заново со стандартными названиями. Уже отмеченные дни встанут на соответствующее место новой шкалы.</p>
+      <RescalePreview n={n} />
       <div class="row-actions">
         <button class="pill-btn" onClick={() => {
-          resetScale(n, d.palette === 'custom' ? 'spectrum' : d.palette)
+          const undo = resetScale(n, d.palette === 'custom' ? 'spectrum' : d.palette)
           setOpen(false)
-          showToast(`Шкала на ${n} ${plural(n, 'цвет', 'цвета', 'цветов')}`)
-        }}>Применить</button>
+          showToast(`Шкала на ${n} ${plural(n, 'цвет', 'цвета', 'цветов')}`, { label: 'Отменить', run: undo }, 10000)
+        }} disabled={n === d.levels.length}>Применить</button>
         <button class="pill-btn ghost" onClick={() => setOpen(false)}>Отмена</button>
       </div>
+    </div>
+  )
+}
+
+/** Что станет с уже отмеченными днями при смене числа цветов. */
+function RescalePreview({ n }: { n: number }) {
+  const d = data.value
+  const counts = countByLevel(d)
+  const plan = planRescale(d.levels, n)
+  const moves = d.levels
+    .map((l, i) => ({ from: l.name, to: plan.names[plan.target[i]], count: counts[l.id] || 0 }))
+    .filter(m => m.count > 0 && m.from !== m.to)
+    .reverse()
+  if (n === d.levels.length) return <p class="muted card-sub">Выберите другое число цветов.</p>
+  return (
+    <div class="rescale">
+      <p class="muted card-sub">Новая шкала: {plan.names.slice().reverse().join(', ')}.</p>
+      {moves.length ? (
+        <ul class="rescale-moves">
+          {moves.map(m => (
+            <li key={m.from}><span>{m.from}</span> → <b>{m.to}</b> <small>{m.count} {plural(m.count, 'день', 'дня', 'дней')}</small></li>
+          ))}
+        </ul>
+      ) : <p class="muted card-sub">Отмеченные дни сохранят свои названия.</p>}
     </div>
   )
 }
@@ -376,7 +397,7 @@ function PinSection() {
   return (
     <div class="card">
       <h2 class="card-title">Код-пароль</h2>
-      <p class="muted card-sub">Закрывает дневник от случайного взгляда, если кто-то возьмёт телефон. Отметки им не шифруются.</p>
+      <p class="muted card-sub">Закрывает дневник от случайного взгляда, если кто-то возьмёт телефон. Забытый код можно снять с экрана блокировки после 10 минут ожидания. Отметки им не шифруются.</p>
       {step === 'idle' ? (
         <div class="row-actions">
           {has ? (

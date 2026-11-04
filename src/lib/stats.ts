@@ -191,3 +191,10 @@ export function narrative(data: Data, list: [DayKey, Entry][], year: number | nu
 
   return out
 }
+
+/** Первый отмеченный день (или null). */
+export function firstEntry(data: Data): DayKey | null {
+  let min: DayKey | null = null
+  for (const k of Object.keys(data.entries)) if (min == null || k < min) min = k
+  return min
+}

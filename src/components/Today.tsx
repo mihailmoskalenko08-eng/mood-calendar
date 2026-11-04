@@ -7,7 +7,8 @@ import {
 import { currentStreak } from '../lib/stats'
 import { plural } from '../lib/dates'
 import { backupDue, saveBackup } from '../backup'
-import { data, focusDay, levelOf, levelsById, sheetDay, snoozeBackup, today } from '../state'
+import { isIosBrowserTab } from '../lib/env'
+import { data, focusDay, go, levelOf, levelsById, sheetDay, snoozeBackup, today } from '../state'
 import { ClearDay, NoteField, ScalePicker, TagPicker } from './DayEditor'
 import { IconLeft, IconRight } from './icons'
 import { useSwipe } from './ui'
@@ -65,6 +66,16 @@ export function Today() {
         <p class="today-q">
           {isFuture ? 'Этот день ещё не наступил' : level ? <>День — <em>{level.name.toLowerCase()}</em></> : day === now ? 'Как прошёл день?' : 'Как прошёл этот день?'}
         </p>
+        {missedYesterday && (
+          <button class="nudge-line" onClick={() => { focusDay.value = yesterday }}>
+            <i class="nudge-dot" aria-hidden="true" />Вчера без цвета · <u>отметить</u>
+          </button>
+        )}
+        {isIosBrowserTab() && Object.keys(d.entries).length > 0 && (
+          <button class="nudge-line nudge-line--warn" onClick={() => go('settings')}>
+            Вы в Safari: эти отметки не попадут в приложение с иконки · <u>как перенести</u>
+          </button>
+        )}
       </header>
 
       {!isFuture && <ScalePicker day={day} />}
@@ -85,12 +96,6 @@ export function Today() {
             <button class="pill-btn ghost" onClick={() => snoozeBackup(7)}>Позже</button>
           </span>
         </div>
-      )}
-
-      {missedYesterday && (
-        <button class="nudge" onClick={() => { focusDay.value = yesterday }}>
-          Вчера осталось без цвета — <u>отметить</u>
-        </button>
       )}
 
       <Memories day={day} />

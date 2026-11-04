@@ -3,7 +3,7 @@
 import { signal } from '@preact/signals'
 import { useEffect, useState } from 'preact/hooks'
 import { haptic } from '../lib/haptic'
-import { checkPin, clearLock, readLock } from '../lib/lock'
+import { cancelReset, checkPin, clearLock, readLock, requestReset, resetAt } from '../lib/lock'
 import { restoreSession, sheetDay } from '../state'
 import { ConfirmButton } from './ui'
 
@@ -82,7 +82,7 @@ export function LockScreen() {
     setBusy(true)
     checkPin(pin).then(ok => {
       setBusy(false)
-      if (ok) { locked.value = false; return }
+      if (ok) { cancelReset(); locked.value = false; return }
       haptic()
       setError(true)
       setTimeout(() => { setError(false); setPin('') }, 520)
@@ -98,17 +98,9 @@ export function LockScreen() {
       <Keypad disabled={busy || error}
         onDigit={d => setPin(p => (p.length < PIN_LENGTH ? p + d : p))}
         onBack={() => setPin(p => p.slice(0, -1))} />
-      {!help ? (
+      {!help && !resetAt() ? (
         <button class="link-btn link-btn--muted lock-help" onClick={() => setHelp(true)}>Забыли код?</button>
-      ) : (
-        <div class="lock-forgot">
-          <p>Код закрывает экран от случайного взгляда, отметки им не шифруются. Его можно снять — данные останутся на месте.</p>
-          <ConfirmButton class="pill-btn ghost" confirm="Нажмите ещё раз, чтобы снять код"
-            onConfirm={() => { clearLock(); locked.value = false }}>
-            Снять код
-          </ConfirmButton>
-        </div>
-      )}
+      ) : <ForgotPin />}
       </div>
     </div>
   )
@@ -119,6 +111,43 @@ export function Shield() {
   return (
     <div class="lock lock--shield" aria-hidden="true">
       <p class="display lock-title">Оттенки</p>
+    </div>
+  )
+}
+
+/** Забытый код снимается только через 10 минут ожидания — данные при этом остаются на месте. */
+function ForgotPin() {
+  const [, tick] = useState(0)
+  const at = resetAt()
+  useEffect(() => {
+    if (!at) return
+    const t = setInterval(() => tick(x => x + 1), 1000)
+    return () => clearInterval(t)
+  }, [at])
+  const left = at ? Math.max(0, at - Date.now()) : null
+  const mm = left != null ? Math.floor(left / 60000) : 0
+  const ss = left != null ? String(Math.floor((left % 60000) / 1000)).padStart(2, '0') : '00'
+  return (
+    <div class="lock-forgot">
+      {left == null ? (
+        <>
+          <p>Код можно снять без него, но только через 10 минут ожидания — чтобы его не сняли мимоходом. Отметки останутся на месте.</p>
+          <button class="pill-btn ghost" onClick={() => { requestReset(); tick(x => x + 1) }}>Начать ожидание</button>
+        </>
+      ) : left > 0 ? (
+        <>
+          <p>Код можно будет снять через <b class="lock-timer">{mm}:{ss}</b>. Если вспомните — просто введите его.</p>
+          <button class="link-btn link-btn--muted" onClick={() => { cancelReset(); tick(x => x + 1) }}>Не снимать</button>
+        </>
+      ) : (
+        <>
+          <p>Ожидание прошло.</p>
+          <ConfirmButton class="pill-btn ghost" confirm="Нажмите ещё раз, чтобы снять код"
+            onConfirm={() => { clearLock(); locked.value = false }}>
+            Снять код
+          </ConfirmButton>
+        </>
+      )}
     </div>
   )
 }

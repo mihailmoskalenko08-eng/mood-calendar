@@ -14,7 +14,8 @@ export async function saveBackup(kind: 'json' | 'csv' = 'json'): Promise<boolean
   if (r === 'cancelled') return false
   if (r === 'needs-tap') { showToast('Копия готова', { label: 'Сохранить', run: () => { sharePending(); markBackedUp() } }, 10000); return false }
   if (kind === 'json') markBackedUp()
-  if (r === 'downloaded') showToast('Файл сохранён')
+  if (r === 'downloaded') showToast(`Копия скачана: ottenki-${todayKey()}.${kind}. На iPhone она в «Файлах» → «Загрузки» — лучше перенести в iCloud Drive`, undefined, 8000)
+  else showToast('Копия сохранена')
   return true
 }
 

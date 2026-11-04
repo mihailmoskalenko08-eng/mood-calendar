@@ -53,6 +53,27 @@ export async function checkPin(pin: string): Promise<boolean> {
 }
 
 export function clearLock() {
-  try { localStorage.removeItem(KEY) } catch { /* */ }
+  try { localStorage.removeItem(KEY); localStorage.removeItem('ottenki:lock:reset-at') } catch { /* */ }
   hasLock.value = false
+}
+
+// Сброс забытого кода — только после ожидания, чтобы его нельзя было снять мимоходом.
+const RESET_KEY = 'ottenki:lock:reset-at'
+export const RESET_DELAY_MS = 10 * 60_000
+
+export function resetAt(): number | null {
+  try {
+    const v = Number(localStorage.getItem(RESET_KEY))
+    return v > 0 ? v : null
+  } catch {
+    return null
+  }
+}
+
+export function requestReset() {
+  try { localStorage.setItem(RESET_KEY, String(Date.now() + RESET_DELAY_MS)) } catch { /* */ }
+}
+
+export function cancelReset() {
+  try { localStorage.removeItem(RESET_KEY) } catch { /* */ }
 }

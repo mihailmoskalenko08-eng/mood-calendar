@@ -22,7 +22,8 @@ export function Stats() {
   const d = data.value
   const now = today.value
   const nd = parseKey(now)
-  const [period, setPeriod] = useState<Period>('year')
+  // Пока отметок мало, начинаем с месяца — годовые графики по паре точек только путают
+  const [period, setPeriod] = useState<Period>(() => (Object.keys(d.entries).length < 45 ? 'month' : 'year'))
   const [ym, setYm] = useState({ y: nd.getFullYear(), m: nd.getMonth() })
 
   const range: Range | null = period === 'all' ? null : period === 'year' ? yearRange(ym.y) : monthRange(ym.y, ym.m)
@@ -69,7 +70,11 @@ export function Stats() {
           <Story lines={story} />
           <Distribution d={d} list={list} />
           {period !== 'month' && <ByMonth d={d} year={period === 'year' ? ym.y : null} />}
-          <ByWeekday d={d} list={list} />
+          {list.length >= 14 ? <ByWeekday d={d} list={list} /> : (
+            <div class="card"><h2 class="card-title">Дни недели</h2>
+              <p class="muted card-sub">Ещё {14 - list.length} {plural(14 - list.length, 'отметка', 'отметки', 'отметок')} за этот период — и станет видно, какие дни недели даются легче.</p>
+            </div>
+          )}
           <Streaks d={d} range={range} now={now} />
           <Tags d={d} list={list} />
           <Notes list={list} />
@@ -197,6 +202,13 @@ function ByMonth({ d, year }: { d: Data; year: number | null }) {
   // «Всё время» — среднее по каждому месяцу за все годы; «Год» — по месяцам выбранного года
   const items = useMemo(() => year != null ? monthlyAverages(d, year) : allTimeByMonth(d), [d.entries, d.levels, year])
   const ex = year != null ? extremeMonths(d, year) : { best: null, worst: null }
+  if (items.filter(x => x.count >= 3).length < 2) {
+    return (
+      <div class="card"><h2 class="card-title">По месяцам</h2>
+        <p class="muted card-sub">Сравнение месяцев появится, когда будет хотя бы два месяца с отметками.</p>
+      </div>
+    )
+  }
   return (
     <div class="card">
       <h2 class="card-title">По месяцам</h2>
@@ -243,17 +255,17 @@ function Streaks({ d, range, now }: { d: Data; range: Range | null; now: string 
         {range === null || range.to >= now ? (
           <div class="tile">
             <span class="display tile-num">{cur}</span>
-            <span class="tile-label">{plural(cur, 'день', 'дня', 'дней')} подряд — сейчас</span>
+            <span class="tile-label">{plural(cur, 'день', 'дня', 'дней')} подряд · сейчас</span>
           </div>
         ) : null}
         <div class="tile">
           <span class="display tile-num">{marked.length}</span>
-          <span class="tile-label">рекорд отметок подряд</span>
+          <span class="tile-label">{plural(marked.length, 'день', 'дня', 'дней')} подряд · рекорд</span>
           <span class="muted">{span(marked)}</span>
         </div>
         <div class="tile">
           <span class="display tile-num">{good.length}</span>
-          <span class="tile-label">хороших дней подряд</span>
+          <span class="tile-label">{plural(good.length, 'светлый день', 'светлых дня', 'светлых дней')} подряд · рекорд</span>
           <span class="muted">{good.length ? span(good) : 'ещё впереди'}</span>
         </div>
       </div>
@@ -262,7 +274,8 @@ function Streaks({ d, range, now }: { d: Data; range: Range | null; now: string 
 }
 
 function Tags({ d, list }: { d: Data; list: ReturnType<typeof entriesIn> }) {
-  const ins = tagInsights(d, list)
+  // Выводы по метке — только когда она стояла хотя бы 3 дня и всего отметок не меньше 10
+  const ins = list.length >= 10 ? tagInsights(d, list).filter(t => t.count >= 3) : []
   if (!ins.length) return null
   const steps = d.levels.length - 1
   const maxDelta = Math.max(0.5, ...ins.map(t => Math.abs((t.delta ?? 0) * steps)))

@@ -61,7 +61,7 @@ function demo() {
   await page.goto(BASE)
   await page.waitForTimeout(2800)
   await page.screenshot({ path: `shots/00-onboard${suffix}.png` })
-  await page.click('text=Дальше')
+  await page.click('.onboard .cta')
   await page.waitForTimeout(500)
   await page.screenshot({ path: `shots/01-onboard2${suffix}.png` })
   await page.click('text=Начать')

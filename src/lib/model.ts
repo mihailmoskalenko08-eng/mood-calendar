@@ -163,3 +163,21 @@ export function countByLevel(data: Data): Record<string, number> {
   for (const e of Object.values(data.entries)) if (e.level in out) out[e.level]++
   return out
 }
+
+/**
+ * План смены числа уровней: куда переедет каждый старый уровень и как будут называться новые.
+ * Свои (не стандартные) названия сохраняются, если на новое место приходит ровно один старый уровень.
+ */
+export function planRescale(levels: Level[], n: number): { names: string[]; target: number[] } {
+  const target = levels.map((_, i) => {
+    const t = levels.length > 1 ? i / (levels.length - 1) : 0
+    return Math.round(t * (n - 1))
+  })
+  const names = defaultNames(n)
+  const stock = new Set(defaultNames(levels.length))
+  for (let j = 0; j < n; j++) {
+    const from = target.map((t, i) => (t === j ? i : -1)).filter(i => i >= 0)
+    if (from.length === 1 && !stock.has(levels[from[0]].name)) names[j] = levels[from[0]].name
+  }
+  return { names, target }
+}

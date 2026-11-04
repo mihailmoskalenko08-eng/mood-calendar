@@ -3,12 +3,13 @@
 import { batch, computed, effect, signal } from '@preact/signals'
 import { parseKey, todayKey, type DayKey } from './lib/dates'
 import {
-  MAX_LEVELS, MAX_NOTE, MAX_TAGS, MIN_LEVELS, defaultNames, newId, recolor, removeLevel,
+  MAX_LEVELS, MAX_NOTE, MAX_TAGS, MIN_LEVELS, defaultNames, newId, planRescale, recolor, removeLevel,
   type Data, type Entry, type Level, type Settings
 } from './lib/model'
 import { rampColors } from './lib/color'
 import { paletteById } from './lib/model'
 import { load, merge, save, STORAGE_KEY } from './lib/storage'
+import { firstEntry } from './lib/stats'
 
 const initial = load()
 export const data = signal<Data>(initial.data)
@@ -109,6 +110,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function go(t: Tab) {
+  if (tab.value !== t) hideToast()
   tab.value = t
   try { history.replaceState(null, '', `#${t}`) } catch { /* нет истории — не страшно */ }
 }
@@ -137,6 +139,8 @@ export function hideToast() {
 export const levelsById = computed(() => new Map(data.value.levels.map(l => [l.id, l])))
 export const tagsById = computed(() => new Map(data.value.tags.map(t => [t.id, t])))
 export const markedCount = computed(() => Object.keys(data.value.entries).length)
+/** Первый отмеченный день — начало дневника. */
+export const firstDay = computed(() => firstEntry(data.value))
 
 export function levelOf(day: DayKey): Level | undefined {
   const e = data.value.entries[day]
@@ -253,19 +257,20 @@ export function applyPalette(id: string) {
 }
 
 /** Сбросить шкалу к стандартной на n уровней; старые отметки распределяются пропорционально. */
-export function resetScale(n: number, paletteId: string) {
+/** Пересобрать шкалу на n уровней; старые отметки встают на соответствующее место. Возвращает отмену. */
+export function resetScale(n: number, paletteId: string): () => void {
   n = Math.min(MAX_LEVELS, Math.max(MIN_LEVELS, n))
+  const before = data.value
   update(d => {
     const colors = rampColors(paletteById(paletteId).stops, n)
-    const levels = defaultNames(n).map((name, i) => ({ id: newId('l'), name, color: colors[i] }))
+    const plan = planRescale(d.levels, n)
+    const levels = plan.names.map((name, i) => ({ id: newId('l'), name, color: colors[i] }))
+    const byOld = new Map(d.levels.map((l, i) => [l.id, levels[plan.target[i]].id]))
     const entries: Data['entries'] = {}
-    for (const [k, e] of Object.entries(d.entries)) {
-      const i = d.levels.findIndex(l => l.id === e.level)
-      const t = d.levels.length > 1 ? i / (d.levels.length - 1) : 0
-      entries[k] = { ...e, level: levels[Math.round(t * (n - 1))].id }
-    }
+    for (const [k, e] of Object.entries(d.entries)) entries[k] = { ...e, level: byOld.get(e.level) ?? levels[0].id }
     return { ...d, palette: paletteId, levels, entries }
   })
+  return () => { data.value = before }
 }
 
 // ——— Метки ———

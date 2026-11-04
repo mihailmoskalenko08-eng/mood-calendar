@@ -8,8 +8,8 @@ import {
   addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTHS, MONTHS_SHORT, parseKey, plural, ROMAN, weekdayMon
 } from '../lib/dates'
 import { renderPoster, shareOrDownload, sharePending } from '../lib/poster'
-import { entriesIn, yearRange, elapsedDays } from '../lib/stats'
-import { data, go, levelOf, setSetting, sheetDay, showToast, today, viewMonth, viewYear } from '../state'
+import { elapsedDays, entriesIn, yearRange } from '../lib/stats'
+import { data, firstDay, go, levelOf, setSetting, sheetDay, showToast, today, viewMonth, viewYear } from '../state'
 import { IconLeft, IconRight, IconShare } from './icons'
 import { gesture, Segmented, useSwipe } from './ui'
 
@@ -19,7 +19,12 @@ export function Year() {
   const d = data.value
   const layout = d.settings.yearLayout
   const marked = entriesIn(d, yearRange(y)).length
-  const elapsed = elapsedDays(yearRange(y), now)
+  // Считаем с начала дневника, а не с 1 января: месяцы до первой отметки — не «пропуски»
+  const start = firstDay.value
+  const range = yearRange(y)
+  const from = start && start > range.from && start <= range.to ? start : range.from
+  const elapsed = elapsedDays({ from, to: range.to }, now)
+  const sinceStart = from !== range.from
   const [busy, setBusy] = useState(false)
   const swipe = useSwipe(dir => { viewYear.value = y + dir })
 
@@ -43,7 +48,7 @@ export function Year() {
     <section class="screen year" {...swipe}>
       <header class="screen-head">
         <div>
-          <div class="eyebrow">{marked} из {elapsed} {plural(elapsed, 'дня', 'дней', 'дней')} в цвете</div>
+          <div class="eyebrow">{marked} из {elapsed} {plural(elapsed, 'дня', 'дней', 'дней')}{sinceStart ? ' с начала дневника' : ' в цвете'}</div>
           <h1 class="display screen-title year-title" key={y}>{y}</h1>
         </div>
         <div class="head-nav">
@@ -75,8 +80,10 @@ export function Year() {
 function Pixel({ k, now }: { k: string; now: string }) {
   const l = levelOf(k)
   const future = compareKeys(k, now) > 0
+  const start = firstDay.value
+  const before = !l && start != null && k < start
   return (
-    <button class={`px${l ? ' is-set' : ''}${k === now ? ' is-today' : ''}${future ? ' is-future' : ''}`}
+    <button class={`px${l ? ' is-set' : ''}${k === now ? ' is-today' : ''}${future ? ' is-future' : ''}${before ? ' is-before' : ''}`}
       style={l ? { background: l.color } : undefined} disabled={future}
       data-day={k}
       onClick={() => { if (!scrubbedRecently()) sheetDay.value = k }}

@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { readBackup } from '../backup'
 import { plural } from '../lib/dates'
 import { rampColors } from '../lib/color'
-import { PALETTES } from '../lib/model'
+import { defaultNames, PALETTES } from '../lib/model'
+import { isIosBrowserTab } from '../lib/env'
+import { IconShare } from './icons'
 import { applyPalette, data, finishOnboarding, replaceAll, resetScale, showToast } from '../state'
 
 export function Onboarding() {
@@ -70,7 +72,13 @@ export function Onboarding() {
           <p class="eyebrow">Дневник без слов</p>
           <h1 class="display onboard-title">Оттенки</h1>
           <p class="onboard-lead">Каждый вечер — один цвет: каким был день. Через месяц это узор, через год — картина твоей жизни.</p>
-          <button class="cta" onClick={() => setStep(1)}>Дальше</button>
+          {isIosBrowserTab() && (
+            <div class="onboard-install">
+              <span><b>Сначала поставьте на экран «Домой»</b> — отметки в Safari и в приложении с иконки хранятся отдельно.</span>
+              <span>«Поделиться» <IconShare size={16} /> → «На экран „Домой“» → откройте с иконки.</span>
+            </div>
+          )}
+          <button class="cta" onClick={() => setStep(1)}>{isIosBrowserTab() ? 'Всё равно начать здесь' : 'Дальше'}</button>
           <button class="link-btn onboard-restore" onClick={() => file.current?.click()}>Уже вели «Оттенки»? Загрузить копию</button>
           <input ref={file} type="file" accept="application/json,.json" hidden onChange={restore} />
         </div>
@@ -86,6 +94,7 @@ export function Onboarding() {
               <button class="icon-btn" onClick={() => setN(Math.min(10, n + 1))} disabled={n >= 10} aria-label="Больше">+</button>
             </div>
           </div>
+          <p class="onboard-names">{defaultNames(n)[0]} → … → {defaultNames(n)[n - 1]}</p>
           <div class="palettes palettes--onboard" role="radiogroup" aria-label="Палитра">
             {PALETTES.map(p => (
               <button key={p.id} role="radio" aria-checked={pal === p.id} class={`palette${pal === p.id ? ' is-on' : ''}`} onClick={() => setPal(p.id)}>
