@@ -5,11 +5,11 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { haptic } from '../lib/haptic'
 import {
-  addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTHS_SHORT, parseKey, plural, ROMAN, weekdayMon
+  addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTHS, MONTHS_SHORT, parseKey, plural, ROMAN, weekdayMon
 } from '../lib/dates'
 import { renderPoster, shareOrDownload } from '../lib/poster'
 import { entriesIn, yearRange, elapsedDays } from '../lib/stats'
-import { data, levelOf, setSetting, sheetDay, showToast, today, viewYear } from '../state'
+import { data, go, levelOf, setSetting, sheetDay, showToast, today, viewMonth, viewYear } from '../state'
 import { IconLeft, IconRight, IconShare } from './icons'
 import { gesture, Segmented, useSwipe } from './ui'
 
@@ -87,7 +87,10 @@ function MonthsGrid({ y, now }: { y: number; now: string }) {
   return (
     <div class="ygrid" role="grid" aria-label={`${y} по месяцам`}>
       <span />
-      {ROMAN.map((l, m) => <span class="ygrid-m" key={m} title={MONTHS_SHORT[m]}>{l}</span>)}
+      {ROMAN.map((l, m) => (
+        <button class="ygrid-m" key={m} aria-label={`Открыть ${MONTHS[m]} ${y}`}
+          onClick={() => { viewMonth.value = { y, m }; go('month') }}>{l}</button>
+      ))}
       {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
         <Fragment key={day}>
           <span class="ygrid-d">{day === 1 || day % 5 === 0 ? day : ''}</span>

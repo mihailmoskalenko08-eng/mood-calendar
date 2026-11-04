@@ -2,7 +2,7 @@
 
 import { withAlpha } from '../lib/color'
 import {
-  addDays, capitalize, compareKeys, humanDate, parseKey, relativeLabel, WEEKDAYS, WEEKDAYS_SHORT, weekdayMon
+  addDays, capitalize, compareKeys, humanDate, isValidKey, parseKey, relativeLabel, WEEKDAYS, WEEKDAYS_SHORT, weekdayMon
 } from '../lib/dates'
 import { currentStreak } from '../lib/stats'
 import { plural } from '../lib/dates'
@@ -47,8 +47,15 @@ export function Today() {
         </div>
         <div class="today-date-row">
           <h1 class="display today-date">
-            <span class="today-num">{date.getDate()}</span>{' '}
-            <span class="today-month">{humanDate(day, now).replace(/^\d+ /, '')}</span>
+            <label class="date-jump">
+              <span class="today-num">{date.getDate()}</span>{' '}
+              <span class="today-month">{humanDate(day, now).replace(/^\d+ /, '')}</span>
+              <input type="date" class="date-jump-input" aria-label="Перейти к дате" value={day} max={now}
+                onChange={e => {
+                  const v = (e.target as HTMLInputElement).value
+                  if (isValidKey(v) && compareKeys(v, now) <= 0) focusDay.value = v
+                }} />
+            </label>
           </h1>
           <div class="today-nav">
             <button class="icon-btn" onClick={() => shift(-1)} aria-label="Предыдущий день"><IconLeft /></button>

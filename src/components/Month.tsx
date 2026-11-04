@@ -7,6 +7,9 @@ import {
 import { levelAtScore } from '../lib/model'
 import { average, distribution, elapsedDays, entriesIn, monthRange } from '../lib/stats'
 
+/** Куда листали в последний раз — сетка въезжает с той стороны. */
+let slideDir = 0
+
 const fmt = (n: number) => n.toLocaleString('ru', { maximumFractionDigits: 1 })
 
 const MONTHS_PREP = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре']
@@ -45,6 +48,7 @@ export function Month() {
   }
 
   const shift = (n: number) => {
+    slideDir = n
     const t = new Date(y, m + n, 1)
     viewMonth.value = { y: t.getFullYear(), m: t.getMonth() }
   }
@@ -59,7 +63,7 @@ export function Month() {
         </div>
         <div class="head-nav">
           {!isCurrent && (
-            <button class="pill-btn" onClick={() => { viewMonth.value = { y: nowDate.getFullYear(), m: nowDate.getMonth() } }}>
+            <button class="pill-btn" onClick={() => { slideDir = 0; viewMonth.value = { y: nowDate.getFullYear(), m: nowDate.getMonth() } }}>
               Сегодня
             </button>
           )}
@@ -68,7 +72,8 @@ export function Month() {
         </div>
       </header>
 
-      <div class="cal" role="grid" aria-label={`${capitalize(MONTHS[m])} ${y}`}>
+      <div class="cal" role="grid" aria-label={`${capitalize(MONTHS[m])} ${y}`} key={`${y}-${m}`}
+        style={{ '--dir': slideDir } as Record<string, number>}>
         <div class="cal-row cal-weekdays" role="row">
           {weekdayOrder(d.settings.weekStart).map(w => (
             <span role="columnheader" key={w} class={w >= 5 ? 'is-weekend' : ''}>{WEEKDAYS_SHORT[w]}</span>
