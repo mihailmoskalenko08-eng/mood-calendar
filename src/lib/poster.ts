@@ -1,6 +1,6 @@
 // Картинка года для «Поделиться»: холст 1080×1920 (сторис) с сеткой месяцев и легендой.
 
-import { daysInMonth, keyOf, MONTH_LETTERS } from './dates'
+import { daysInMonth, keyOf, MONTH_LETTERS, plural } from './dates'
 import type { Data } from './model'
 
 export interface PosterTheme {
@@ -32,10 +32,15 @@ export async function renderPoster(data: Data, year: number, theme: PosterTheme)
   ctx.fillText(String(year), 84, 360)
 
   const byId = new Map(data.levels.map(l => [l.id, l]))
+  const levels = [...data.levels].reverse()
+  const cols = levels.length > 5 ? 2 : 1
+  const perCol = Math.ceil(levels.length / cols)
+  const legendH = perCol * 52
   const left = 150, top = 470, gridW = W - left - 96
-  const gap = 8
+  const gap = 7
   const cell = Math.floor((gridW - gap * 11) / 12)
-  const rowH = Math.min(cell, Math.floor((1180 - gap * 30) / 31))
+  const gridBottom = H - 120 - legendH - 60
+  const rowH = Math.min(cell, Math.floor((gridBottom - top - gap * 30) / 31))
   const r = Math.min(10, rowH / 3)
 
   ctx.font = `500 30px ${sans}`
@@ -62,10 +67,7 @@ export async function renderPoster(data: Data, year: number, theme: PosterTheme)
   }
 
   // Легенда: от лучшего к худшему, в две колонки
-  const legendTop = top + 31 * (rowH + gap) + 70
-  const levels = [...data.levels].reverse()
-  const cols = levels.length > 5 ? 2 : 1
-  const perCol = Math.ceil(levels.length / cols)
+  const legendTop = top + 31 * (rowH + gap) + 64
   ctx.textAlign = 'left'
   ctx.font = `400 32px ${sans}`
   levels.forEach((l, i) => {
@@ -80,7 +82,7 @@ export async function renderPoster(data: Data, year: number, theme: PosterTheme)
 
   ctx.fillStyle = theme.muted
   ctx.font = `400 28px ${sans}`
-  ctx.fillText(`${marked} ${marked % 10 === 1 && marked % 100 !== 11 ? 'день' : 'дней'} в цвете`, 96, H - 90)
+  ctx.fillText(`${marked} ${plural(marked, 'день', 'дня', 'дней')} в цвете`, 96, H - 80)
 
   return await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Не удалось нарисовать картинку'))), 'image/png'))

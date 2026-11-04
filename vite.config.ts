@@ -33,6 +33,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,png,svg}'],
+        globIgnores: ['splash/**'],
         navigateFallback: '/mood-calendar/index.html'
       }
     })

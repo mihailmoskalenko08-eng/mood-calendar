@@ -452,6 +452,13 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 .week-day.is-today .week-num { font-weight: 700; color: var(--ink); }
 .week-day.is-focus .week-cell { transform: scale(1.08); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--ink); }
 
+.memories { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
+.memory { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.memory-swatch { width: 14px; height: 14px; border-radius: 4px; margin-top: 3px; flex: none; }
+.memory-text { font-size: 15px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
+.memory-text b { color: var(--ink); font-weight: 600; }
+.memory-note { font-family: var(--serif); font-size: 18px; color: var(--ink); line-height: 1.3; }
+
 /* ——— Месяц ——— */
 
 .cal { display: flex; flex-direction: column; gap: 6px; }
