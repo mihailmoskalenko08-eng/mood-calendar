@@ -22,6 +22,9 @@
 
   --r: 18px;
   --r-sm: 12px;
+  --r-xs: 6px;
+  --ring: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--ink);
+  --wash-alpha: 1;
   --gutter: 20px;
   --tabbar-h: 64px;
   --safe-t: env(safe-area-inset-top, 0px);
@@ -46,6 +49,7 @@
   --danger: #F2867E;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -12px rgba(0, 0, 0, 0.6);
   --grain-opacity: 0.18;
+  --wash-alpha: 0.5;
   color-scheme: dark;
 }
 
@@ -64,6 +68,7 @@
     --danger: #F2867E;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -12px rgba(0, 0, 0, 0.6);
     --grain-opacity: 0.18;
+    --wash-alpha: 0.5;
     color-scheme: dark;
   }
 }
@@ -190,7 +195,7 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 .icon-btn:active:not(:disabled) { background: var(--line); transform: scale(0.94); }
 .icon-btn:disabled { opacity: 0.25; }
 .icon-btn.sm { width: 36px; height: 36px; }
-.icon-btn.danger { color: var(--danger); }
+.icon-btn.danger { color: var(--muted); }
 .icon-btn.is-armed { width: auto; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 560; background: color-mix(in srgb, var(--danger) 12%, transparent); }
 
 .pill-btn {
@@ -207,7 +212,7 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
   transition: transform 0.15s, opacity 0.2s;
 }
 .pill-btn:active:not(:disabled) { transform: scale(0.96); }
-.pill-btn:disabled { opacity: 0.4; }
+.pill-btn:disabled { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .pill-btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .pill-btn.is-armed { background: var(--danger); color: #fff; box-shadow: none; }
 
@@ -231,16 +236,13 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
   box-shadow: var(--shadow);
 }
 .card-title {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin: 0 0 14px;
+  font: italic 500 28px/1.05 var(--serif);
+  margin: 0 0 16px;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: baseline;
 }
-.card-title .muted { font-weight: 500; letter-spacing: 0.04em; }
+.card-title .muted { font: 400 15px var(--sans); font-style: normal; }
 .card-sub { font-size: 14px; margin: -6px 0 14px; line-height: 1.45; }
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
@@ -288,6 +290,7 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
   height: 70vh;
   pointer-events: none;
   background: radial-gradient(120% 60% at 20% 0%, var(--wash), transparent 70%);
+  opacity: var(--wash-alpha);
   transition: background 0.8s var(--ease);
 }
 .today-head { margin: 10px 0 22px; }
@@ -318,49 +321,51 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 
 /* ——— Шкала ——— */
 
-.scale { display: flex; flex-direction: column; gap: 6px; }
+.scale { display: flex; flex-direction: column; }
 .scale-row {
-  --h: clamp(46px, calc((100dvh - 470px) / var(--rows)), 58px);
+  --h: clamp(48px, calc((100dvh - 470px) / var(--rows)), 58px);
   position: relative;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   height: var(--h);
-  padding: 0 16px 0 14px;
-  border-radius: 14px;
+  padding: 0 14px 0 6px;
+  border-radius: 0;
   overflow: hidden;
   isolation: isolate;
   text-align: left;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
-  transition: transform 0.25s var(--spring), box-shadow 0.3s;
+  border-top: 1px solid var(--line);
+  transition: transform 0.25s var(--spring), border-radius 0.3s, padding 0.3s var(--ease);
   animation: row-in 0.5s var(--ease) both;
   animation-delay: var(--d);
 }
+.scale-row:last-child { border-bottom: 1px solid var(--line); }
 @keyframes row-in { from { opacity: 0; transform: translateY(10px); } }
-.scale--compact .scale-row { --h: 46px; animation: none; }
-.scale-row:active { transform: scale(0.98); }
+.scale--compact .scale-row { --h: 48px; animation: none; }
+.scale-row:active { transform: scale(0.985); }
 .scale-fill {
   position: absolute;
   inset: 0;
   z-index: -1;
   background: var(--c);
-  clip-path: circle(0% at 30px 50%);
+  clip-path: circle(0% at 13px 50%);
   transition: clip-path 0.55s var(--ease);
 }
-.scale-row.is-on .scale-fill { clip-path: circle(150% at 30px 50%); }
+.scale-row.is-on { border-radius: var(--r-sm); border-color: transparent; padding-left: 14px; }
+.scale-row.is-on + .scale-row { border-top-color: transparent; }
+.scale-row.is-on .scale-fill { clip-path: circle(150% at 20px 50%); }
 .scale-dot {
-  width: 20px; height: 20px;
-  border-radius: 50%;
+  width: 14px;
+  height: 24px;
+  border-radius: 7px;
   background: var(--c);
   flex: none;
-  transition: transform 0.4s var(--spring), box-shadow 0.3s;
+  transition: transform 0.4s var(--spring), background 0.3s, height 0.3s var(--ease);
 }
-.scale-row.is-on .scale-dot { transform: scale(0.5); box-shadow: 0 0 0 2px var(--ink-on); background: var(--ink-on); }
+.scale-row.is-on .scale-dot { height: 14px; background: var(--ink-on); transform: scale(0.6); }
 .scale-name { flex: 1; font-size: 17px; font-weight: 500; transition: color 0.3s; }
-.scale-num { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; display: grid; place-items: center; min-width: 20px; transition: color 0.3s; }
-.scale-row.is-on .scale-name, .scale-row.is-on .scale-num { color: var(--ink-on); }
-.scale-row.is-on { box-shadow: 0 10px 26px -12px var(--c); }
+.scale-num { color: var(--ink-on); display: grid; place-items: center; min-width: 20px; }
+.scale-row.is-on .scale-name { color: var(--ink-on); }
 .scale.has-pick .scale-row:not(.is-on) .scale-name { color: var(--ink-2); }
 .scale-row.is-burst::after {
   content: '';
@@ -444,13 +449,13 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
   width: 100%;
   max-width: 40px;
   aspect-ratio: 1;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--empty);
   transition: background 0.4s, transform 0.3s var(--spring);
 }
 .week-num { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .week-day.is-today .week-num { font-weight: 700; color: var(--ink); }
-.week-day.is-focus .week-cell { transform: scale(1.08); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--ink); }
+.week-day.is-focus .week-cell { transform: scale(1.08); box-shadow: var(--ring); }
 
 .memories { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
 .memory { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
@@ -486,7 +491,7 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 }
 .cal-cell:active:not(:disabled) { transform: scale(0.92); }
 .cal-cell.is-out { background: transparent; }
-.cal-cell.is-future { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.cal-cell.is-future { background: transparent; }
 .cal-cell.is-set {
   background: var(--c);
   color: var(--ink-on);
@@ -496,7 +501,7 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 @keyframes cell-in { from { transform: scale(0.6); opacity: 0; } }
 .cal-num { font-size: 13px; font-weight: 560; font-variant-numeric: tabular-nums; line-height: 1; opacity: 0.85; }
 .cal-cell:not(.is-set) .cal-num { color: var(--muted); }
-.cal-cell.is-today { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--ink); }
+.cal-cell.is-today { box-shadow: var(--ring); }
 .cal-cell.is-today .cal-num { opacity: 1; font-weight: 700; color: inherit; }
 .cal-cell.is-today:not(.is-set) .cal-num { color: var(--ink); }
 .cal-note {
@@ -529,12 +534,12 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 
 .ygrid {
   display: grid;
-  grid-template-columns: 18px repeat(12, 1fr);
+  grid-template-columns: 20px repeat(12, 1fr);
   gap: 3px;
   align-items: center;
 }
-.ygrid-m { text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); padding-bottom: 4px; }
-.ygrid-d { font-size: 9.5px; color: var(--muted); text-align: right; padding-right: 3px; font-variant-numeric: tabular-nums; }
+.ygrid-m { text-align: center; font: italic 500 14px/1 var(--serif); color: var(--ink-2); padding-bottom: 6px; }
+.ygrid-d { font-size: 11px; color: var(--muted); text-align: right; padding-right: 3px; font-variant-numeric: tabular-nums; }
 .px {
   display: block;
   width: 100%;
@@ -545,14 +550,14 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 }
 .px.is-out { background: transparent; }
 .px.is-future { background: var(--empty-2); }
-.px.is-today { box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 3px var(--ink); position: relative; z-index: 1; }
+.px.is-today { box-shadow: var(--ring); position: relative; z-index: 1; }
 .px:active:not(:disabled) { transform: scale(1.3); }
 
 .wgrid { display: flex; flex-direction: column; gap: 3px; }
 .wgrid-row { display: grid; grid-template-columns: 34px repeat(7, 1fr); gap: 3px; align-items: center; }
 .wgrid .px { aspect-ratio: 2.2; }
 .wgrid-m { font-size: 11px; color: var(--muted); font-weight: 560; }
-.legend--year { margin-top: 22px; }
+.legend--year { margin-top: 14px; }
 
 /* ——— Переключатель ——— */
 
@@ -589,17 +594,30 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 
 /* ——— Итоги ——— */
 
-.stats .segmented { margin-bottom: 18px; }
-.hero { display: flex; gap: 18px; align-items: center; }
-.hero-swatch {
-  width: 76px; height: 76px;
-  border-radius: 22px;
-  flex: none;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+.stats .segmented { margin-bottom: 8px; }
+.stats .card {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 26px 0 24px;
+  margin: 0;
+  border-top: 1px solid var(--line-strong);
 }
-.hero-name { font-size: 40px; margin: 4px 0 6px; }
-.hero .muted { font-size: 14px; }
-
+.stats .card-title { font-size: 30px; margin-bottom: 18px; }
+.stats .card-sub { margin-top: -8px; }
+.stats .card.hero {
+  margin: 18px 0 8px;
+  padding: 22px 22px 20px;
+  border: 0;
+  border-radius: var(--r);
+  background: var(--c);
+  color: var(--ink-on);
+  position: relative;
+  overflow: hidden;
+}
+.hero .eyebrow { color: inherit; opacity: 0.75; }
+.hero-name { font-size: 52px; margin: 8px 0 12px; }
+.hero-meta { font-size: 14px; opacity: 0.8; }
 .bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .bars li { display: grid; grid-template-columns: minmax(90px, 32%) 1fr auto; align-items: center; gap: 12px; font-size: 14.5px; }
 .bars-name { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -609,24 +627,30 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 .bars-val { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
 .bars-val small { font-weight: 400; color: var(--muted); font-size: 12.5px; }
 
-.cols { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; height: 150px; }
-.col { display: flex; flex-direction: column; align-items: stretch; gap: 8px; height: 100%; }
-.col-track {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  border-bottom: 1px solid var(--line-strong);
+.cols { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; height: 170px; }
+.col { display: flex; flex-direction: column; align-items: stretch; gap: 10px; height: 100%; }
+.col-track { position: relative; flex: 1; display: flex; justify-content: center; }
+.col-track::before { content: ''; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.cols .col-track::after {
+  content: '';
+  position: absolute;
+  left: -2px; right: -2px;
+  top: var(--mean);
+  border-top: 1px dashed var(--line-strong);
 }
-.col-fill {
-  width: min(100%, 24px);
-  border-radius: 4px 4px 0 0;
-  animation: grow-y 0.7s var(--ease) both;
-  transform-origin: bottom;
-  transition: opacity 0.2s;
+.col-dot {
+  position: absolute;
+  width: 16px; height: 16px;
+  margin-bottom: -8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bg);
+  animation: dot-in 0.6s var(--spring) both;
+  animation-delay: var(--i);
+  transition: transform 0.25s var(--spring), opacity 0.2s;
 }
-@keyframes grow-y { from { transform: scaleY(0); } }
-.cols:has(.is-sel) .col:not(.is-sel) .col-fill { opacity: 0.35; }
+@keyframes dot-in { from { transform: scale(0); } }
+.cols:has(.is-sel) .col:not(.is-sel) .col-dot { opacity: 0.35; }
+.col.is-sel .col-dot { transform: scale(1.35); }
 .col-label { font-size: 11px; color: var(--muted); text-align: center; font-weight: 560; text-transform: uppercase; letter-spacing: 0.04em; }
 .col.is-sel .col-label { color: var(--ink); }
 .cols-readout { font-size: 14.5px; margin: 12px 0 0; min-height: 21px; color: var(--ink-2); }
@@ -638,12 +662,12 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 .insight { margin: 14px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 15px; color: var(--ink-2); }
 .insight b { color: var(--ink); font-weight: 600; }
 
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; }
-.tile { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 14px; background: var(--bg); min-width: 0; }
-.tile .eyebrow { font-size: 10.5px; letter-spacing: 0.1em; }
-.tile-num { font-size: 48px; line-height: 0.9; margin-top: 4px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 0; }
+.tile { display: flex; flex-direction: column; gap: 6px; padding: 0 14px; border-left: 1px solid var(--line); min-width: 0; }
+.tile:first-child { border-left: 0; padding-left: 0; }
+.tile-num { font-size: 60px; line-height: 0.85; }
+.tile-label { font-size: 13px; color: var(--ink-2); line-height: 1.3; }
 .tile .muted { font-size: 12.5px; line-height: 1.3; }
-
 .tag-ins { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .tag-ins li { display: grid; grid-template-columns: minmax(96px, 36%) 1fr 48px; align-items: center; gap: 12px; }
 .tag-ins-name { font-size: 15px; display: flex; flex-direction: column; line-height: 1.2; }
@@ -752,16 +776,16 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 
 .disclosure summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
 .disclosure summary::-webkit-details-marker { display: none; }
-.disclosure summary::after { content: '+'; font-size: 24px; line-height: 1; color: var(--muted); transition: transform 0.3s var(--ease); margin-top: -14px; }
+.disclosure summary::after { content: '+'; font-size: 24px; line-height: 1; color: var(--muted); transition: transform 0.3s var(--ease); align-self: center; }
+.disclosure summary .card-title { margin-bottom: 0; }
+.disclosure[open] summary { margin-bottom: 14px; }
 .disclosure[open] summary::after { transform: rotate(45deg); }
 .disclosure:not([open]) .card-title { margin-bottom: 0; }
 
 .steps { margin: 0 0 14px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; color: var(--ink-2); }
 .steps b { color: var(--ink); font-weight: 600; }
 .share-glyph { display: inline-block; vertical-align: -4px; }
-.install { background: var(--ink); color: var(--bg); }
-.install .steps, .install .steps b, .install .muted { color: inherit; }
-.install .muted { opacity: 0.7; }
+.install { background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
 
 .copy { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 12px; background: var(--bg); text-align: left; }
 .copy code { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
@@ -863,15 +887,15 @@ html.locked .toast.is-on { transform: translate(-50%, 0); }
   width: 100%;
   margin: 0 auto;
   flex: 1;
-  align-content: start;
-  max-height: 46vh;
+  align-content: end;
+  min-height: 0;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
-  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 80%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 80%, transparent);
 }
 .onboard-mosaic i { aspect-ratio: 1; border-radius: 5px; background: var(--empty); transition: background 0.5s, transform 0.5s var(--spring); transform: scale(0.7); }
 .onboard-mosaic i.is-on { transform: scale(1); }
-.onboard-text { max-width: 420px; width: 100%; margin: auto auto 0; padding-top: 28px; }
+.onboard-text { max-width: 420px; width: 100%; margin: 0 auto; padding-top: 20px; flex: none; }
 .onboard-title { font-size: clamp(64px, 20vw, 92px); margin: 10px 0 16px; font-style: italic; }
 .onboard-title--sm { font-size: clamp(48px, 14vw, 64px); }
 .onboard-lead { font-family: var(--serif); font-size: 24px; line-height: 1.25; color: var(--ink-2); margin: 0 0 28px; }
@@ -902,8 +926,7 @@ html.locked .toast.is-on { transform: translate(-50%, 0); }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
 }
 .tag-ins + .card-sub { margin: 16px 0 0; }
-.cal-cell.is-future .cal-num { opacity: 0.45; }
-.cal-cell.is-future { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent); }
+.cal-cell.is-future .cal-num { opacity: 0.4; }
 
 /* ——— Пролистывание года ——— */
 .scrub { position: relative; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
@@ -930,3 +953,18 @@ html.locked .toast.is-on { transform: translate(-50%, 0); }
 .scrub-body span { opacity: 0.8; }
 .scrub-body i { font-family: var(--serif); font-size: 15px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hint { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+
+.compare, .insight, .card-sub, .empty-card p, .memory-note { text-wrap: pretty; }
+.onboard-lead, .today-q { text-wrap: balance; }
+.nb { white-space: nowrap; }
+
+/* Цвет сегодняшнего дня — единственное цветное пятно в нижней панели */
+.tabbar-btn .today-dot { transition: fill 0.4s; }
+
+/* Заголовок нижней панели — как на главном экране, только меньше */
+.sheet-title { display: flex; align-items: baseline; gap: 10px; }
+.sheet-title .today-num { font-size: 64px; }
+.sheet-title .today-month { font-size: 30px; }
+
+.palettes { scroll-padding-inline: 20px; }
+.palettes--onboard { scroll-padding-inline: 24px; }

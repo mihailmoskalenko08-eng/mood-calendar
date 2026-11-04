@@ -17,7 +17,7 @@ export function Onboarding() {
     let s = 7
     const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647
     let mood = 0.6
-    return Array.from({ length: 144 }, () => {
+    return Array.from({ length: 216 }, () => {
       mood = Math.min(1, Math.max(0, mood + (rnd() - 0.5) * 0.55))
       return mood
     })
@@ -25,7 +25,7 @@ export function Onboarding() {
   const [filled, setFilled] = useState(0)
   useEffect(() => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(seeds.length); return }
-    const t = setInterval(() => setFilled(f => (f >= seeds.length ? f : f + 2)), 24)
+    const t = setInterval(() => setFilled(f => (f >= seeds.length ? f : f + 3)), 24)
     return () => clearInterval(t)
   }, [])
 

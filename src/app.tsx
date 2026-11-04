@@ -1,7 +1,7 @@
 import { useEffect } from 'preact/hooks'
 import { CORRUPT_PREFIX } from './lib/storage'
 import { shareOrDownload } from './lib/poster'
-import { capitalize, compareKeys, humanDate, relativeLabel, todayKey, WEEKDAYS, weekdayMon } from './lib/dates'
+import { capitalize, compareKeys, humanDate, parseKey, relativeLabel, todayKey, WEEKDAYS, weekdayMon } from './lib/dates'
 import {
   corruptStored, data, go, levelOf, recoveredFromBackup, saveFailed, sheetDay, showToast, startFresh, storageAvailable,
   tab, today, type Tab
@@ -75,7 +75,7 @@ export function App() {
         {TABS.map(({ id, label, Icon }) => (
           <button key={id} class={`tabbar-btn${current === id ? ' is-on' : ''}`} aria-current={current === id ? 'page' : undefined}
             onClick={() => go(id)}>
-            <Icon size={24} />
+            {id === 'today' ? <IconToday size={24} dot={levelOf(today.value)?.color} /> : <Icon size={24} />}
             <span>{label}</span>
           </button>
         ))}
@@ -99,7 +99,10 @@ function DaySheet() {
       {day && (
         <div class="sheet-body">
           <div class="eyebrow">{capitalize(WEEKDAYS[weekdayMon(day)])}{relativeLabel(day, now) ? ` · ${relativeLabel(day, now)}` : ''}</div>
-          <h2 class="display sheet-title">{humanDate(day, now)}</h2>
+          <h2 class="display sheet-title">
+            <span class="today-num">{parseKey(day).getDate()}</span>
+            <span class="today-month">{humanDate(day, now).replace(/^\d+ /, '')}</span>
+          </h2>
           <ScalePicker day={day} compact />
           {level && (
             <div class="details">

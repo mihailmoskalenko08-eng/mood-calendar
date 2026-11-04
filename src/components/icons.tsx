@@ -13,8 +13,11 @@ function Svg({ size = 24, children, ...rest }: P & { children: JSX.Element | JSX
   )
 }
 
-export const IconToday = (p: P) => (
-  <Svg {...p}><circle cx="12" cy="12" r="8.2" /><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none" /></Svg>
+export const IconToday = ({ dot, ...p }: P & { dot?: string }) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.2" />
+    <circle class="today-dot" cx="12" cy="12" r={dot ? 4.6 : 3.2} fill={dot ?? 'currentColor'} stroke="none" />
+  </Svg>
 )
 export const IconMonth = (p: P) => (
   <Svg {...p}>
@@ -25,9 +28,9 @@ export const IconMonth = (p: P) => (
 )
 export const IconYear = (p: P) => (
   <Svg {...p}>
-    {[0, 1, 2, 3].map(r => [0, 1, 2, 3].map(c => (
-      <rect x={4 + c * 4.3} y={4 + r * 4.3} width="3" height="3" rx=".8"
-        fill={(r * 4 + c) % 3 === 0 ? 'currentColor' : 'none'} stroke-width={1.3} />
+    {[0, 1, 2, 3].map(r => [0, 1, 2].map(c => (
+      <rect x={4.5 + c * 5.5} y={3.5 + r * 4.5} width="4" height="3.2" rx="1"
+        fill={r === 3 && c === 2 ? 'none' : 'currentColor'} stroke={r === 3 && c === 2 ? 'currentColor' : 'none'} stroke-width={1.2} />
     ))).flat()}
   </Svg>
 )

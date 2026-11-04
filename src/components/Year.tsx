@@ -5,7 +5,7 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { haptic } from '../lib/haptic'
 import {
-  addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTH_LETTERS, MONTHS_SHORT, parseKey, plural, weekdayMon
+  addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTHS_SHORT, parseKey, plural, ROMAN, weekdayMon
 } from '../lib/dates'
 import { renderPoster, shareOrDownload } from '../lib/poster'
 import { entriesIn, yearRange, elapsedDays } from '../lib/stats'
@@ -54,7 +54,7 @@ export function Year() {
       <div class="year-tools">
         <Segmented label="Вид года" value={layout} onChange={v => setSetting('yearLayout', v)}
           options={[{ value: 'months', label: 'По месяцам' }, { value: 'weeks', label: 'По неделям' }]} />
-        <button class="pill-btn" onClick={share} disabled={busy}>
+        <button class="pill-btn ghost" onClick={share} disabled={busy}>
           <IconShare size={18} /> {busy ? 'Рисую…' : 'Картинка'}
         </button>
       </div>
@@ -62,11 +62,11 @@ export function Year() {
       <Scrub now={now}>
         {layout === 'months' ? <MonthsGrid y={y} now={now} /> : <WeeksGrid y={y} now={now} />}
       </Scrub>
-      <p class="hint">Нажмите на день, чтобы открыть его. Зажмите и ведите пальцем — чтобы пролистать дни.</p>
 
       <ul class="legend legend--year">
         {[...d.levels].reverse().map(l => <li key={l.id}><i class="dot" style={{ background: l.color }} />{l.name}</li>)}
       </ul>
+      <p class="hint">Нажмите на день, чтобы открыть его. Зажмите и ведите пальцем — чтобы пролистать дни.</p>
     </section>
   )
 }
@@ -87,7 +87,7 @@ function MonthsGrid({ y, now }: { y: number; now: string }) {
   return (
     <div class="ygrid" role="grid" aria-label={`${y} по месяцам`}>
       <span />
-      {MONTH_LETTERS.map((l, m) => <span class="ygrid-m" key={m} title={MONTHS_SHORT[m]}>{l}</span>)}
+      {ROMAN.map((l, m) => <span class="ygrid-m" key={m} title={MONTHS_SHORT[m]}>{l}</span>)}
       {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
         <Fragment key={day}>
           <span class="ygrid-d">{day === 1 || day % 5 === 0 ? day : ''}</span>

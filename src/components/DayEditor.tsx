@@ -38,7 +38,7 @@ export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: b
             <span class="scale-fill" aria-hidden="true" />
             <span class="scale-dot" aria-hidden="true" />
             <span class="scale-name">{l.name}</span>
-            <span class="scale-num" aria-hidden="true">{on ? <IconCheck size={18} /> : levels.length - i}</span>
+            <span class="scale-num" aria-hidden="true">{on ? <IconCheck size={18} /> : null}</span>
           </button>
         )
       })}

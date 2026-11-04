@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from 'preact/hooks'
 import {
-  capitalize, humanDate, MONTHS, MONTHS_GEN, MONTH_LETTERS, parseKey, plural, WEEKDAYS, WEEKDAYS_SHORT, weekdayOrder
+  capitalize, humanDate, MONTHS, MONTHS_GEN, parseKey, plural, ROMAN, WEEKDAYS, WEEKDAYS_SHORT, weekdayOrder
 } from '../lib/dates'
+import { inkOn, sampleRamp } from '../lib/color'
 import { levelAtScore, type Data } from '../lib/model'
 import {
   average, currentStreak, distribution, entriesIn, extremeMonths, isGood, longestRun, monthlyAverages,
@@ -14,6 +15,8 @@ import { IconLeft, IconRight, IconSearch } from './icons'
 import { Segmented } from './ui'
 
 type Period = 'month' | 'year' | 'all'
+
+const fmt = (n: number) => n.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 
 export function Stats() {
   const d = data.value
@@ -76,14 +79,12 @@ export function Stats() {
 
 function Hero({ d, avg, count }: { d: Data; avg: number; count: number }) {
   const l = levelAtScore(d, avg)
+  const c = scoreColor(d, avg)
   return (
-    <div class="card hero">
-      <div class="hero-swatch" style={{ background: l.color }} aria-hidden="true" />
-      <div>
-        <div class="eyebrow">Средний день</div>
-        <div class="display hero-name">{l.name}</div>
-        <div class="muted">{count} {plural(count, 'день', 'дня', 'дней')} в цвете · {(avg * (d.levels.length - 1) + 1).toFixed(1)} из {d.levels.length}</div>
-      </div>
+    <div class="card hero" style={{ '--c': c, '--ink-on': inkOn(c) } as Record<string, string>}>
+      <div class="eyebrow">Средний день</div>
+      <div class="display hero-name">{l.name}</div>
+      <div class="hero-meta">{count} {plural(count, 'день', 'дня', 'дней')} в цвете · {fmt(avg * (d.levels.length - 1) + 1)} из {d.levels.length}</div>
     </div>
   )
 }
@@ -112,6 +113,15 @@ function Distribution({ d, list }: { d: Data; list: ReturnType<typeof entriesIn>
   )
 }
 
+/** Цвет для средней оценки — плавно между соседними уровнями шкалы. */
+function scoreColor(d: Data, score: number): string {
+  return sampleRamp(d.levels.map(l => l.color), score)
+}
+
+/**
+ * Средние по группам точками. Шкала по вертикали растянута на диапазон данных (с запасом),
+ * поэтому различия видны; точки, а не столбики, — чтобы не изображать «ноль» там, где его нет.
+ */
 function Columns({ d, items, labels, titles, caption }: {
   d: Data
   items: { avg: number | null; count: number }[]
@@ -121,18 +131,29 @@ function Columns({ d, items, labels, titles, caption }: {
 }) {
   const [sel, setSel] = useState<number | null>(null)
   const s = sel != null ? items[sel] : null
+  const known = items.filter(x => x.avg != null).map(x => x.avg!)
+  const min = Math.min(...known), max = Math.max(...known)
+  const pad = Math.max(0.06, (max - min) * 0.3)
+  const lo = Math.max(0, min - pad), hi = Math.min(1, max + pad)
+  const pos = (v: number) => (hi === lo ? 50 : ((v - lo) / (hi - lo)) * 100)
+  let total = 0, n = 0
+  for (const it of items) if (it.avg != null) { total += it.avg * it.count; n += it.count }
+  const mean = n ? total / n : null
   return (
     <>
-      <div class="cols" role="group" aria-label={caption}>
+      <div class="cols" role="group" aria-label={caption}
+        style={mean != null ? { '--mean': `${100 - pos(mean)}%` } as Record<string, string> : undefined}>
+        
         {items.map((it, i) => {
           const l = it.avg != null ? levelAtScore(d, it.avg) : null
-          const h = it.avg != null ? 12 + it.avg * 88 : 0
           return (
             <button key={i} class={`col${sel === i ? ' is-sel' : ''}`}
               onClick={() => setSel(sel === i ? null : i)}
               aria-label={`${titles[i]}: ${l ? `${l.name}, ${it.count} ${plural(it.count, 'день', 'дня', 'дней')}` : 'нет отметок'}`}>
               <span class="col-track">
-                {l && <span class="col-fill" style={{ height: `${h}%`, background: l.color }} />}
+                {it.avg != null && (
+                  <span class="col-dot" style={{ bottom: `${pos(it.avg)}%`, background: scoreColor(d, it.avg), '--i': `${i * 40}ms` } as Record<string, string>} />
+                )}
               </span>
               <span class="col-label">{labels[i]}</span>
             </button>
@@ -144,7 +165,7 @@ function Columns({ d, items, labels, titles, caption }: {
           s.avg != null
             ? <><b>{capitalize(titles[sel])}</b> — в среднем «{levelAtScore(d, s.avg).name.toLowerCase()}», {s.count} {plural(s.count, 'день', 'дня', 'дней')}</>
             : <><b>{capitalize(titles[sel])}</b> — нет отметок</>
-        ) : <span class="muted">Нажмите на столбик, чтобы увидеть подробности</span>}
+        ) : <span class="muted">Пунктир — средний день за период. Чем выше точка, тем светлее.</span>}
       </p>
     </>
   )
@@ -162,7 +183,7 @@ function ByMonth({ d, year }: { d: Data; year: number | null }) {
   return (
     <div class="card">
       <h2 class="card-title">По месяцам</h2>
-      <Columns d={d} items={items} labels={MONTH_LETTERS} titles={MONTHS} caption="Среднее по месяцам" />
+      <Columns d={d} items={items} labels={ROMAN} titles={MONTHS} caption="Среднее по месяцам" />
       {(ex.best != null || ex.worst != null) && (
         <div class="facts">
           {ex.best != null && <div><span class="eyebrow">Самый светлый</span><b>{capitalize(MONTHS[ex.best])}</b></div>}
@@ -204,19 +225,18 @@ function Streaks({ d, range, now }: { d: Data; range: Range | null; now: string 
       <div class="tiles">
         {range === null || range.to >= now ? (
           <div class="tile">
-            <span class="eyebrow">Сейчас подряд</span>
             <span class="display tile-num">{cur}</span>
-            <span class="muted">{plural(cur, 'день', 'дня', 'дней')}</span>
+            <span class="tile-label">{plural(cur, 'день', 'дня', 'дней')} подряд — сейчас</span>
           </div>
         ) : null}
         <div class="tile">
-          <span class="eyebrow">Рекорд отметок</span>
           <span class="display tile-num">{marked.length}</span>
+          <span class="tile-label">рекорд отметок подряд</span>
           <span class="muted">{span(marked)}</span>
         </div>
         <div class="tile">
-          <span class="eyebrow">Хорошие подряд</span>
           <span class="display tile-num">{good.length}</span>
+          <span class="tile-label">хороших дней подряд</span>
           <span class="muted">{good.length ? span(good) : 'ещё впереди'}</span>
         </div>
       </div>
@@ -246,7 +266,7 @@ function Tags({ d, list }: { d: Data; list: ReturnType<typeof entriesIn> }) {
                 <span class={`tag-ins-fill is-${dir}`} style={{ width: `${w}%`, [dir === 'down' ? 'right' : 'left']: '50%' }} />
               </span>
               <span class={`tag-ins-val is-${dir}`}>
-                {delta == null ? '—' : dir === 'flat' ? '≈ 0' : `${delta > 0 ? '+' : '−'}${Math.abs(delta).toFixed(1)}`}
+                {delta == null ? '—' : dir === 'flat' ? '≈ 0' : `${delta > 0 ? '+' : '−'}${fmt(Math.abs(delta))}`}
               </span>
             </li>
           )

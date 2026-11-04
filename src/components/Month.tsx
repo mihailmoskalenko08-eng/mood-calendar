@@ -7,6 +7,8 @@ import {
 import { levelAtScore } from '../lib/model'
 import { average, distribution, elapsedDays, entriesIn, monthRange } from '../lib/stats'
 
+const fmt = (n: number) => n.toLocaleString('ru', { maximumFractionDigits: 1 })
+
 const MONTHS_PREP = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре']
 import { data, levelOf, sheetDay, today, viewMonth } from '../state'
 import { IconLeft, IconRight } from './icons'
@@ -103,10 +105,12 @@ export function Month() {
     if (avg == null || pa == null || list.length < 3 || prev.length < 3) return null
     const delta = (avg - pa) * (d.levels.length - 1)
     const name = MONTHS_PREP[p.getMonth()]
-    if (Math.abs(delta) < 0.2) return <p class="compare">Примерно как в {name}.</p>
+    if (Math.abs(delta) < 0.2) return <p class="compare">По настроению — примерно как в {name}.</p>
+    const amount = Math.abs(delta)
+    const words = amount < 0.75 ? 'на полшага' : amount < 1.25 ? 'на целый шаг' : `на ${fmt(amount)} шага`
     return (
       <p class="compare">
-        {delta > 0 ? 'Светлее' : 'Тяжелее'}, чем в {name}: в среднем на <b>{Math.abs(delta).toFixed(1)}</b> ступени {delta > 0 ? 'выше' : 'ниже'}.
+        {delta > 0 ? 'Светлее' : 'Тяжелее'}, чем в {name}: в среднем <span class="nb">{words}</span> {delta > 0 ? 'выше' : 'ниже'} по шкале.
       </p>
     )
   }

@@ -1,6 +1,6 @@
 // Картинка года для «Поделиться»: холст 1080×1920 (сторис) с сеткой месяцев и легендой.
 
-import { daysInMonth, keyOf, MONTH_LETTERS, plural } from './dates'
+import { daysInMonth, keyOf, plural, ROMAN } from './dates'
 import type { Data } from './model'
 
 export interface PosterTheme {
@@ -25,8 +25,8 @@ export async function renderPoster(data: Data, year: number, theme: PosterTheme)
   const sans = '"Onest Variable", system-ui, sans-serif'
 
   ctx.fillStyle = theme.muted
-  ctx.font = `500 34px ${sans}`
-  ctx.fillText('ОТТЕНКИ', 96, 150)
+  ctx.font = `italic 500 52px ${serif}`
+  ctx.fillText('Оттенки', 96, 150)
   ctx.fillStyle = theme.ink
   ctx.font = `500 230px ${serif}`
   ctx.fillText(String(year), 84, 360)
@@ -41,12 +41,12 @@ export async function renderPoster(data: Data, year: number, theme: PosterTheme)
   const cell = Math.floor((gridW - gap * 11) / 12)
   const gridBottom = H - 120 - legendH - 60
   const rowH = Math.min(cell, Math.floor((gridBottom - top - gap * 30) / 31))
-  const r = Math.min(10, rowH / 3)
+  const r = Math.min(8, rowH / 4)
 
-  ctx.font = `500 30px ${sans}`
+  ctx.font = `italic 500 34px ${serif}`
   ctx.textAlign = 'center'
   ctx.fillStyle = theme.muted
-  for (let m = 0; m < 12; m++) ctx.fillText(MONTH_LETTERS[m], left + m * (cell + gap) + cell / 2, top - 22)
+  for (let m = 0; m < 12; m++) ctx.fillText(ROMAN[m], left + m * (cell + gap) + cell / 2, top - 22)
   ctx.textAlign = 'right'
   ctx.font = `400 24px ${sans}`
   for (let dd = 1; dd <= 31; dd++) {
