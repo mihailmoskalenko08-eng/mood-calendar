@@ -518,6 +518,8 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 .legend li { display: inline-flex; align-items: center; gap: 7px; }
 .legend li span { color: var(--muted); font-variant-numeric: tabular-nums; }
 .empty-note { color: var(--muted); font-size: 15px; margin: 0; }
+.compare { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 15px; color: var(--ink-2); }
+.compare b { color: var(--ink); }
 
 /* ——— Год ——— */
 

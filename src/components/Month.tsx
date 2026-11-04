@@ -6,6 +6,8 @@ import {
 } from '../lib/dates'
 import { levelAtScore } from '../lib/model'
 import { average, distribution, elapsedDays, entriesIn, monthRange } from '../lib/stats'
+
+const MONTHS_PREP = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре']
 import { data, levelOf, sheetDay, today, viewMonth } from '../state'
 import { IconLeft, IconRight } from './icons'
 import { useSwipe } from './ui'
@@ -85,6 +87,7 @@ export function Month() {
               )}
             </div>
             <SegmentBar />
+            <Compare />
           </>
         ) : (
           <p class="empty-note">{compareKeys(range.from, now) > 0 ? 'Этот месяц ещё впереди.' : 'В этом месяце пока нет отметок. Нажмите на день, чтобы раскрасить его.'}</p>
@@ -92,6 +95,21 @@ export function Month() {
       </div>
     </section>
   )
+
+  function Compare() {
+    const p = new Date(y, m - 1, 1)
+    const prev = entriesIn(d, monthRange(p.getFullYear(), p.getMonth()))
+    const pa = average(d, prev)
+    if (avg == null || pa == null || list.length < 3 || prev.length < 3) return null
+    const delta = (avg - pa) * (d.levels.length - 1)
+    const name = MONTHS_PREP[p.getMonth()]
+    if (Math.abs(delta) < 0.2) return <p class="compare">Примерно как в {name}.</p>
+    return (
+      <p class="compare">
+        {delta > 0 ? 'Светлее' : 'Тяжелее'}, чем в {name}: в среднем на <b>{Math.abs(delta).toFixed(1)}</b> ступени {delta > 0 ? 'выше' : 'ниже'}.
+      </p>
+    )
+  }
 
   function SegmentBar() {
     const dist = distribution(d, list).filter(x => x.count > 0).reverse()
