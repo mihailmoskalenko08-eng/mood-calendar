@@ -165,6 +165,9 @@ export function ConfirmButton({ children, confirm, onConfirm, class: cls = '', l
   )
 }
 
+/** Время окончания последнего «пролистывания» года — чтобы оно не считалось свайпом. */
+export const gesture = { scrubEnd: 0 }
+
 /** Горизонтальный свайп: вызывает onSwipe(-1 | 1). */
 export function useSwipe(onSwipe: (dir: -1 | 1) => void) {
   const start = useRef<{ x: number; y: number; t: number } | null>(null)
@@ -178,7 +181,7 @@ export function useSwipe(onSwipe: (dir: -1 | 1) => void) {
     onTouchEnd: (e: TouchEvent) => {
       const s = start.current
       start.current = null
-      if (!s) return
+      if (!s || Date.now() - gesture.scrubEnd < 400) return
       const t = e.changedTouches[0]
       const dx = t.clientX - s.x, dy = t.clientY - s.y
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.6 && Date.now() - s.t < 600) onSwipe(dx < 0 ? 1 : -1)

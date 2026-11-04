@@ -902,3 +902,31 @@ html.locked .toast.is-on { transform: translate(-50%, 0); }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
 }
 .tag-ins + .card-sub { margin: 16px 0 0; }
+.cal-cell.is-future .cal-num { opacity: 0.45; }
+.cal-cell.is-future { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent); }
+
+/* ——— Пролистывание года ——— */
+.scrub { position: relative; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.scrub.is-scrubbing .px:not(.is-scrub) { opacity: 0.55; transition: opacity 0.2s; }
+.px.is-scrub { transform: scale(1.5); position: relative; z-index: 2; box-shadow: 0 0 0 2px var(--bg), 0 4px 12px rgba(0, 0, 0, 0.25); }
+.scrub-tip {
+  position: fixed;
+  z-index: 30;
+  width: 220px;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--bg);
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  animation: tip-in 0.18s var(--ease) both;
+}
+@keyframes tip-in { from { opacity: 0; transform: translateY(6px) scale(0.96); } }
+.scrub-swatch { width: 28px; height: 28px; border-radius: 8px; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
+.scrub-body { display: flex; flex-direction: column; min-width: 0; font-size: 13px; line-height: 1.3; }
+.scrub-body b { font-size: 15px; font-weight: 600; }
+.scrub-body span { opacity: 0.8; }
+.scrub-body i { font-family: var(--serif); font-size: 15px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hint { font-size: 13px; color: var(--muted); margin: 14px 0 0; }

@@ -1,7 +1,9 @@
 // Год: каждый день — пиксель. Два вида: «месяцы × дни» и «недели» (как лента активности).
 
 import { Fragment } from 'preact'
-import { useState } from 'preact/hooks'
+import type { ComponentChildren } from 'preact'
+import { useEffect, useRef, useState } from 'preact/hooks'
+import { haptic } from '../lib/haptic'
 import {
   addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTH_LETTERS, MONTHS_SHORT, parseKey, plural, weekdayMon
 } from '../lib/dates'
@@ -9,7 +11,7 @@ import { renderPoster, shareOrDownload } from '../lib/poster'
 import { entriesIn, yearRange, elapsedDays } from '../lib/stats'
 import { data, levelOf, setSetting, sheetDay, showToast, today, viewYear } from '../state'
 import { IconLeft, IconRight, IconShare } from './icons'
-import { Segmented, useSwipe } from './ui'
+import { gesture, Segmented, useSwipe } from './ui'
 
 export function Year() {
   const y = viewYear.value
@@ -57,7 +59,10 @@ export function Year() {
         </button>
       </div>
 
-      {layout === 'months' ? <MonthsGrid y={y} now={now} /> : <WeeksGrid y={y} now={now} />}
+      <Scrub now={now}>
+        {layout === 'months' ? <MonthsGrid y={y} now={now} /> : <WeeksGrid y={y} now={now} />}
+      </Scrub>
+      <p class="hint">Нажмите на день, чтобы открыть его. Зажмите и ведите пальцем — чтобы пролистать дни.</p>
 
       <ul class="legend legend--year">
         {[...d.levels].reverse().map(l => <li key={l.id}><i class="dot" style={{ background: l.color }} />{l.name}</li>)}
@@ -72,7 +77,8 @@ function Pixel({ k, now }: { k: string; now: string }) {
   return (
     <button class={`px${l ? ' is-set' : ''}${k === now ? ' is-today' : ''}${future ? ' is-future' : ''}`}
       style={l ? { background: l.color } : undefined} disabled={future}
-      onClick={() => { sheetDay.value = k }}
+      data-day={k}
+      onClick={() => { if (!scrubbedRecently()) sheetDay.value = k }}
       aria-label={`${humanDate(k, now)}${l ? `: ${l.name}` : ''}`} />
   )
 }
@@ -117,6 +123,100 @@ function WeeksGrid({ y, now }: { y: number; now: string }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+const scrubbedRecently = () => Date.now() - gesture.scrubEnd < 400
+
+/**
+ * Пролистывание года пальцем: долгое нажатие на сетке включает режим, в котором над пальцем
+ * видно дату, уровень и начало заметки каждого дня под ним. Обычное нажатие по-прежнему открывает день.
+ */
+function Scrub({ children, now }: { children: ComponentChildren; now: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [tip, setTip] = useState<{ k: string; x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let active = false
+    let start = { x: 0, y: 0 }
+    let current = ''
+    let hl: HTMLElement | null = null
+
+    const show = (x: number, y: number) => {
+      const target = document.elementFromPoint(x, y) as HTMLElement | null
+      const px = target?.closest<HTMLElement>('[data-day]')
+      if (!px || px.dataset.day === current) { if (px) setTip(t => (t ? { ...t, x, y } : t)); return }
+      current = px.dataset.day!
+      hl?.classList.remove('is-scrub')
+      hl = px
+      px.classList.add('is-scrub')
+      haptic()
+      setTip({ k: current, x, y })
+    }
+    const stop = () => {
+      clearTimeout(timer)
+      if (active) gesture.scrubEnd = Date.now()
+      active = false
+      current = ''
+      hl?.classList.remove('is-scrub')
+      hl = null
+      el.classList.remove('is-scrubbing')
+      setTip(null)
+    }
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return stop()
+      const t = e.touches[0]
+      start = { x: t.clientX, y: t.clientY }
+      timer = setTimeout(() => {
+        active = true
+        el.classList.add('is-scrubbing')
+        show(start.x, start.y)
+      }, 260)
+    }
+    const onMove = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (active) {
+        e.preventDefault()
+        show(t.clientX, t.clientY)
+      } else if (Math.hypot(t.clientX - start.x, t.clientY - start.y) > 8) {
+        clearTimeout(timer)
+      }
+    }
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', stop)
+    el.addEventListener('touchcancel', stop)
+    el.addEventListener('contextmenu', e => e.preventDefault())
+    return () => {
+      stop()
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', stop)
+      el.removeEventListener('touchcancel', stop)
+    }
+  }, [])
+
+  const d = data.value
+  const e = tip ? d.entries[tip.k] : undefined
+  const l = e ? d.levels.find(x => x.id === e.level) : undefined
+  const left = tip ? Math.min(window.innerWidth - 16 - 220, Math.max(16, tip.x - 110)) : 0
+  return (
+    <div class="scrub" ref={box}>
+      {children}
+      {tip && (
+        <div class="scrub-tip" style={{ left: `${left}px`, top: `${Math.max(12, tip.y - 96)}px` }} aria-hidden="true">
+          <span class="scrub-swatch" style={{ background: l?.color ?? 'var(--empty)' }} />
+          <span class="scrub-body">
+            <b>{humanDate(tip.k, now)}</b>
+            <span>{l ? l.name : compareKeys(tip.k, now) > 0 ? 'ещё впереди' : 'без отметки'}</span>
+            {e?.note && <i>{e.note}</i>}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
