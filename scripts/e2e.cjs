@@ -135,6 +135,14 @@ async function step(name, fn) {
     assert.equal(Object.keys(d.entries).length, 3)
   })
 
+  await step('месяц: картинка месяца', async () => {
+    await page.click('.tabbar-btn:has-text("Месяц")')
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }), page.click('text=Картинка месяца')])
+    const file = path.join(os.tmpdir(), 'ottenki-month.png')
+    await dl.saveAs(file)
+    assert.ok(fs.statSync(file).size > 15000)
+  })
+
   await step('год: оба вида и картинка', async () => {
     await page.click('.tabbar-btn:has-text("Год")')
     assert.ok(await page.locator('.ygrid .px.is-set').count() >= 1)

@@ -10,8 +10,10 @@ import { average, distribution, elapsedDays, entriesIn, monthRange } from '../li
 const fmt = (n: number) => n.toLocaleString('ru', { maximumFractionDigits: 1 })
 
 const MONTHS_PREP = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре']
-import { data, levelOf, sheetDay, today, viewMonth } from '../state'
-import { IconLeft, IconRight } from './icons'
+import { data, levelOf, sheetDay, showToast, today, viewMonth } from '../state'
+import { useState } from 'preact/hooks'
+import { renderMonthPoster, shareOrDownload } from '../lib/poster'
+import { IconLeft, IconRight, IconShare } from './icons'
 import { useSwipe } from './ui'
 
 export function Month() {
@@ -25,6 +27,22 @@ export function Month() {
   const avg = average(d, list)
   const nowDate = parseKey(now)
   const isCurrent = y === nowDate.getFullYear() && m === nowDate.getMonth()
+
+  const [busy, setBusy] = useState(false)
+  const share = async () => {
+    setBusy(true)
+    try {
+      const css = getComputedStyle(document.documentElement)
+      const v = (n: string) => css.getPropertyValue(n).trim()
+      const blob = await renderMonthPoster(d, y, m, { bg: v('--bg'), ink: v('--ink'), muted: v('--muted'), empty: v('--empty') })
+      const r = await shareOrDownload(blob, `ottenki-${y}-${String(m + 1).padStart(2, '0')}.png`, `${capitalize(MONTHS[m])} в цвете`)
+      if (r === 'downloaded') showToast('Картинка сохранена')
+    } catch {
+      showToast('Не получилось сделать картинку')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const shift = (n: number) => {
     const t = new Date(y, m + n, 1)
@@ -90,6 +108,9 @@ export function Month() {
             </div>
             <SegmentBar />
             <Compare />
+            <button class="pill-btn ghost month-share" onClick={share} disabled={busy}>
+              <IconShare size={18} /> {busy ? 'Рисую…' : 'Картинка месяца'}
+            </button>
           </>
         ) : (
           <p class="empty-note">{compareKeys(range.from, now) > 0 ? 'Этот месяц ещё впереди.' : 'В этом месяце пока нет отметок. Нажмите на день, чтобы раскрасить его.'}</p>

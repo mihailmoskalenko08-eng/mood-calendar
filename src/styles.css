@@ -1012,3 +1012,4 @@ html.locked .toast.is-on { transform: translate(-50%, 0); }
 .pin-setup .keypad { grid-template-columns: repeat(3, 64px); gap: 12px 22px; }
 .pin-setup .key { width: 64px; height: 64px; font-size: 28px; }
 .pin-setup .link-btn { margin-top: 12px; }
+.month-share { margin-top: 18px; }

@@ -1,6 +1,6 @@
 // Картинка года для «Поделиться»: холст 1080×1920 (сторис) с сеткой месяцев и легендой.
 
-import { daysInMonth, keyOf, plural, ROMAN } from './dates'
+import { daysInMonth, keyOf, monthGrid, MONTHS, plural, ROMAN, WEEKDAYS_SHORT, weekdayOrder } from './dates'
 import type { Data } from './model'
 
 export interface PosterTheme {
@@ -86,6 +86,90 @@ export async function renderPoster(data: Data, year: number, theme: PosterTheme)
 
   return await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Не удалось нарисовать картинку'))), 'image/png'))
+}
+
+/** Картинка месяца 1080×1920: крупное название, сетка дней в цвете, сколько каких дней. */
+export async function renderMonthPoster(data: Data, y: number, m: number, theme: PosterTheme): Promise<Blob> {
+  const W = 1080, H = 1920
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')!
+  try { await document.fonts.ready } catch { /* шрифты не критичны */ }
+  const serif = '"Cormorant Garamond", Georgia, serif'
+  const sans = '"Onest Variable", system-ui, sans-serif'
+  const byId = new Map(data.levels.map(l => [l.id, l]))
+
+  ctx.fillStyle = theme.bg
+  ctx.fillRect(0, 0, W, H)
+  ctx.fillStyle = theme.muted
+  ctx.font = `italic 500 52px ${serif}`
+  ctx.fillText('Оттенки', 96, 150)
+  ctx.font = `500 40px ${sans}`
+  ctx.textAlign = 'right'
+  ctx.fillText(String(y), W - 96, 150)
+  ctx.textAlign = 'left'
+  const weeks = monthGrid(y, m, data.settings.weekStart)
+  const gap = 16
+  const cell = Math.floor((W - 192 - gap * 6) / 7)
+  // Композиция по центру между шапкой и подвалом
+  const usedCount = new Set(weeks.flat().filter(Boolean).map(k => data.entries[k!]?.level).filter(Boolean)).size
+  const contentH = 370 + weeks.length * (cell + gap) + 80 + Math.ceil(usedCount / 2) * 60
+  const startY = Math.max(200, Math.round((H - contentH) / 2) - 20)
+  ctx.fillStyle = theme.ink
+  ctx.font = `500 190px ${serif}`
+  const name = MONTHS[m].charAt(0).toUpperCase() + MONTHS[m].slice(1)
+  ctx.fillText(name, 84, startY + 200, W - 168)
+  const top = startY + 340
+  ctx.font = `500 30px ${sans}`
+  ctx.textAlign = 'center'
+  ctx.fillStyle = theme.muted
+  weekdayOrder(data.settings.weekStart).forEach((w, i) => ctx.fillText(WEEKDAYS_SHORT[w].toUpperCase(), 96 + i * (cell + gap) + cell / 2, top - 26))
+  ctx.textAlign = 'left'
+  const counts = new Map<string, number>()
+  weeks.forEach((week, wi) => week.forEach((k, i) => {
+    if (!k) return
+    const x = 96 + i * (cell + gap), yy = top + wi * (cell + gap)
+    const e = data.entries[k]
+    const l = e ? byId.get(e.level) : undefined
+    if (l) counts.set(l.id, (counts.get(l.id) ?? 0) + 1)
+    ctx.fillStyle = l ? l.color : theme.empty
+    roundRect(ctx, x, yy, cell, cell, 22)
+    ctx.fill()
+    ctx.fillStyle = l ? inkFor(l.color) : theme.muted
+    ctx.globalAlpha = 0.85
+    ctx.font = `600 30px ${sans}`
+    ctx.fillText(String(Number(k.slice(8))), x + 18, yy + 46)
+    ctx.globalAlpha = 1
+  }))
+
+  const legendTop = top + weeks.length * (cell + gap) + 80
+  const used = [...data.levels].reverse().filter(l => counts.get(l.id))
+  ctx.font = `400 34px ${sans}`
+  used.forEach((l, i) => {
+    const col = i % 2, row = Math.floor(i / 2)
+    const x = 96 + col * 460, yy = legendTop + row * 60
+    ctx.fillStyle = l.color
+    roundRect(ctx, x, yy - 28, 32, 32, 9)
+    ctx.fill()
+    ctx.fillStyle = theme.ink
+    ctx.fillText(l.name, x + 52, yy)
+    ctx.fillStyle = theme.muted
+    ctx.fillText(String(counts.get(l.id)), x + 52 + ctx.measureText(l.name).width + 16, yy)
+  })
+  const total = [...counts.values()].reduce((a, b) => a + b, 0)
+  ctx.fillStyle = theme.muted
+  ctx.font = `400 28px ${sans}`
+  ctx.fillText(`${total} ${plural(total, 'день', 'дня', 'дней')} в цвете`, 96, H - 80)
+
+  return await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Не удалось нарисовать картинку'))), 'image/png'))
+}
+
+function inkFor(hex: string): string {
+  const n = parseInt(hex.slice(1), 16)
+  const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255
+  return lum > 0.6 ? '#17150F' : '#FFFFFF'
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
