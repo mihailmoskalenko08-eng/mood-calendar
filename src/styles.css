@@ -830,13 +830,16 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 .toast {
   position: fixed;
   z-index: 60;
-  left: 50%;
+  left: 16px;
+  right: 16px;
+  margin: 0 auto;
+  width: fit-content;
   bottom: calc(var(--tabbar-h) + var(--safe-b) + 22px);
-  transform: translate(-50%, 20px);
+  transform: translateY(20px);
   display: flex;
   align-items: center;
   gap: 14px;
-  max-width: calc(100vw - 32px);
+  max-width: 480px;
   padding: 12px 14px 12px 18px;
   border-radius: 14px;
   background: var(--ink);
@@ -847,10 +850,10 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
   transition: opacity 0.25s, transform 0.35s var(--spring);
   box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.35);
 }
-.toast.is-on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast.is-on { opacity: 1; transform: translateY(0); pointer-events: auto; }
 /* Пока открыта нижняя панель — уведомление сверху, чтобы не закрывать её кнопки */
-html.locked .toast { bottom: auto; top: calc(var(--safe-t) + 12px); transform: translate(-50%, -20px); }
-html.locked .toast.is-on { transform: translate(-50%, 0); }
+html.locked .toast { bottom: auto; top: calc(var(--safe-t) + 12px); transform: translateY(-20px); }
+html.locked .toast.is-on { transform: translateY(0); }
 .sheet:focus { outline: none; }
 .banner {
   position: relative;
