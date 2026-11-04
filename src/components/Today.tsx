@@ -1,0 +1,95 @@
+// Главный экран: выбранный день крупно, шкала, заметка, неделя.
+
+import { withAlpha } from '../lib/color'
+import {
+  addDays, capitalize, compareKeys, humanDate, parseKey, relativeLabel, WEEKDAYS, WEEKDAYS_SHORT, weekdayMon
+} from '../lib/dates'
+import { currentStreak } from '../lib/stats'
+import { plural } from '../lib/dates'
+import { data, focusDay, levelOf, today } from '../state'
+import { ClearDay, NoteField, ScalePicker, TagPicker } from './DayEditor'
+import { IconLeft, IconRight } from './icons'
+import { useSwipe } from './ui'
+
+export function Today() {
+  const day = focusDay.value
+  const now = today.value
+  const d = data.value
+  const level = levelOf(day)
+  const rel = relativeLabel(day, now)
+  const isFuture = compareKeys(day, now) > 0
+  const date = parseKey(day)
+  const streak = currentStreak(d, now)
+  const yesterday = addDays(now, -1)
+  const missedYesterday = day === now && !d.entries[yesterday] && Object.keys(d.entries).length > 0
+
+  const shift = (n: number) => {
+    const next = addDays(day, n)
+    if (compareKeys(next, now) > 0) return
+    focusDay.value = next
+  }
+  const swipe = useSwipe(dir => shift(dir))
+
+  // Неделя, в которой выбранный день
+  const ws = d.settings.weekStart
+  const offset = (weekdayMon(day) - ws + 7) % 7
+  const week = Array.from({ length: 7 }, (_, i) => addDays(day, i - offset))
+
+  return (
+    <section class="screen today" {...swipe}
+      style={{ '--wash': level ? withAlpha(level.color, 0.22) : 'transparent' } as Record<string, string>}>
+      <div class="today-wash" aria-hidden="true" />
+      <header class="today-head">
+        <div class="eyebrow">
+          {WEEKDAYS[weekdayMon(day)]}{rel ? <> · <b>{rel}</b></> : null}
+          {streak > 1 && day === now && <span class="streak">{streak} {plural(streak, 'день', 'дня', 'дней')} подряд</span>}
+        </div>
+        <div class="today-date-row">
+          <h1 class="display today-date">
+            <span class="today-num">{date.getDate()}</span>{' '}
+            <span class="today-month">{humanDate(day, now).replace(/^\d+ /, '')}</span>
+          </h1>
+          <div class="today-nav">
+            <button class="icon-btn" onClick={() => shift(-1)} aria-label="Предыдущий день"><IconLeft /></button>
+            <button class="icon-btn" onClick={() => shift(1)} disabled={day === now} aria-label="Следующий день"><IconRight /></button>
+          </div>
+        </div>
+        <p class="today-q">
+          {isFuture ? 'Этот день ещё не наступил' : level ? <>День — <em>{level.name.toLowerCase()}</em></> : day === now ? 'Как прошёл день?' : 'Как прошёл этот день?'}
+        </p>
+      </header>
+
+      {!isFuture && <ScalePicker day={day} />}
+
+      {level && d.settings.showDetails && (
+        <div class="details">
+          <NoteField day={day} />
+          <TagPicker day={day} />
+          <ClearDay day={day} />
+        </div>
+      )}
+
+      {missedYesterday && (
+        <button class="nudge" onClick={() => { focusDay.value = yesterday }}>
+          Вчера осталось без цвета — <u>отметить</u>
+        </button>
+      )}
+
+      <nav class="week" aria-label="Неделя">
+        {week.map(k => {
+          const l = levelOf(k)
+          const future = compareKeys(k, now) > 0
+          return (
+            <button key={k} class={`week-day${k === day ? ' is-focus' : ''}${k === now ? ' is-today' : ''}`}
+              disabled={future} onClick={() => { focusDay.value = k }}
+              aria-label={`${capitalize(WEEKDAYS[weekdayMon(k)])}, ${humanDate(k, now)}${l ? `: ${l.name}` : ''}`}>
+              <span class="week-label">{WEEKDAYS_SHORT[weekdayMon(k)]}</span>
+              <span class={`week-cell${l ? ' is-set' : ''}`} style={l ? { background: l.color } : undefined} />
+              <span class="week-num">{parseKey(k).getDate()}</span>
+            </button>
+          )
+        })}
+      </nav>
+    </section>
+  )
+}

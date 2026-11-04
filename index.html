@@ -1,4 +1,32 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mood Calendar</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:500 18px system-ui;background:#f4f1ea;color:#222}</style></head>
-<body><p>Скоро здесь будет календарь настроения.</p></body></html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Оттенки</title>
+  <meta name="description" content="Каждый день — один цвет. Календарь настроения, который живёт на вашем телефоне." />
+  <meta name="theme-color" content="#F2EEE6" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Оттенки" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="icon" href="/mood-calendar/icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/mood-calendar/icons/apple-touch-icon.png" />
+  <script>
+    // Тема до отрисовки — без вспышки светлого экрана ночью
+    try {
+      var d = JSON.parse(localStorage.getItem('ottenki:data:v1') || 'null')
+      var t = d && d.settings && d.settings.theme
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t)
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <noscript>Для «Оттенков» нужен включённый JavaScript.</noscript>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
