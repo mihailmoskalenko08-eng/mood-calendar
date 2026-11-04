@@ -15,7 +15,7 @@ const fmt = (n: number) => n.toLocaleString('ru', { maximumFractionDigits: 1 })
 const MONTHS_PREP = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре']
 import { data, levelOf, sheetDay, showToast, today, viewMonth } from '../state'
 import { useState } from 'preact/hooks'
-import { renderMonthPoster, shareOrDownload } from '../lib/poster'
+import { renderMonthPoster, shareOrDownload, sharePending } from '../lib/poster'
 import { IconLeft, IconRight, IconShare } from './icons'
 import { useSwipe } from './ui'
 
@@ -39,7 +39,8 @@ export function Month() {
       const v = (n: string) => css.getPropertyValue(n).trim()
       const blob = await renderMonthPoster(d, y, m, { bg: v('--bg'), ink: v('--ink'), muted: v('--muted'), empty: v('--empty') })
       const r = await shareOrDownload(blob, `ottenki-${y}-${String(m + 1).padStart(2, '0')}.png`, `${capitalize(MONTHS[m])} в цвете`)
-      if (r === 'downloaded') showToast('Картинка сохранена')
+      if (r === 'needs-tap') showToast('Картинка готова', { label: 'Поделиться', run: sharePending }, 10000)
+      else if (r === 'downloaded') showToast('Картинка скачана')
     } catch {
       showToast('Не получилось сделать картинку')
     } finally {

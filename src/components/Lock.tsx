@@ -4,11 +4,12 @@ import { signal } from '@preact/signals'
 import { useEffect, useState } from 'preact/hooks'
 import { haptic } from '../lib/haptic'
 import { checkPin, clearLock, readLock } from '../lib/lock'
-import { sheetDay } from '../state'
+import { restoreSession, sheetDay } from '../state'
 import { ConfirmButton } from './ui'
 
 /** Приложение закрыто кодом. */
-export const locked = signal(typeof localStorage !== 'undefined' && !!readLock())
+const resumedAt = typeof window !== 'undefined' ? restoreSession() : null
+export const locked = signal(typeof localStorage !== 'undefined' && !!readLock() && !(resumedAt && Date.now() - resumedAt < 30_000))
 /** Шторка на время, пока приложение свёрнуто: снимок в переключателе приложений не покажет дневник. */
 export const shielded = signal(false)
 /** Сколько можно отсутствовать, прежде чем код спросят снова. */

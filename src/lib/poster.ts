@@ -16,7 +16,7 @@ export async function renderPoster(data: Data, year: number, theme: PosterTheme)
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
-  try { await document.fonts.ready } catch { /* шрифты не критичны */ }
+  await loadFonts()
 
   ctx.fillStyle = theme.bg
   ctx.fillRect(0, 0, W, H)
@@ -95,7 +95,7 @@ export async function renderMonthPoster(data: Data, y: number, m: number, theme:
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
-  try { await document.fonts.ready } catch { /* шрифты не критичны */ }
+  await loadFonts()
   const serif = '"Cormorant Garamond", Georgia, serif'
   const sans = '"Onest Variable", system-ui, sans-serif'
   const byId = new Map(data.levels.map(l => [l.id, l]))
@@ -183,8 +183,27 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
-/** Отдать файл: системное «Поделиться» на телефоне, иначе скачивание. */
-export async function shareOrDownload(blob: Blob, filename: string, title: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
+/** Шрифты картинок: fonts.ready не догружает начертания, которых ещё нет на экране, — грузим явно. */
+async function loadFonts() {
+  try {
+    await Promise.all([
+      document.fonts.load('italic 500 52px "Cormorant Garamond"', 'Оттенки'),
+      document.fonts.load('500 52px "Cormorant Garamond"', 'Январь 2026'),
+      document.fonts.load('500 30px "Onest Variable"', 'дней 0123')
+    ])
+  } catch { /* шрифты не критичны */ }
+}
+
+export type ShareResult = 'shared' | 'downloaded' | 'cancelled' | 'needs-tap'
+
+let pending: { file: File; title: string } | null = null
+
+/**
+ * Отдать файл: системное «Поделиться» на телефоне, иначе скачивание.
+ * Safari разрешает «Поделиться» только сразу после нажатия; если файл готовился долго, вернётся 'needs-tap' —
+ * тогда покажите кнопку, которая вызовет sharePending() новым нажатием.
+ */
+export async function shareOrDownload(blob: Blob, filename: string, title: string): Promise<ShareResult> {
   const file = new File([blob], filename, { type: blob.type })
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
   if (nav.share && nav.canShare?.({ files: [file] })) {
@@ -192,7 +211,9 @@ export async function shareOrDownload(blob: Blob, filename: string, title: strin
       await nav.share({ files: [file], title })
       return 'shared'
     } catch (e) {
-      if ((e as DOMException)?.name === 'AbortError') return 'cancelled'
+      const name = (e as DOMException)?.name
+      if (name === 'AbortError') return 'cancelled'
+      if (name === 'NotAllowedError') { pending = { file, title }; return 'needs-tap' }
     }
   }
   const url = URL.createObjectURL(blob)
@@ -204,4 +225,12 @@ export async function shareOrDownload(blob: Blob, filename: string, title: strin
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 4000)
   return 'downloaded'
+}
+
+/** Повторить «Поделиться» для подготовленного файла — вызывать прямо из обработчика нажатия. */
+export function sharePending() {
+  const p = pending
+  pending = null
+  if (!p) return
+  navigator.share({ files: [p.file], title: p.title }).catch(() => {})
 }

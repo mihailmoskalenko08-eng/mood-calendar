@@ -27,7 +27,10 @@ export function Onboarding() {
   const [filled, setFilled] = useState(0)
   useEffect(() => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(seeds.length); return }
-    const t = setInterval(() => setFilled(f => (f >= seeds.length ? f : f + 3)), 24)
+    const t = setInterval(() => setFilled(f => {
+      if (f >= seeds.length) { clearInterval(t); return f }
+      return f + 3
+    }), 24)
     return () => clearInterval(t)
   }, [])
 

@@ -54,6 +54,35 @@ export function Sheet({ open, onClose, children, label }: {
     }
   }, [open])
 
+  // Клавиатура iOS не меняет высоту окна — следим за видимой областью и поднимаем панель над клавиатурой.
+  const wrap = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!open || !vv) return
+    const apply = () => {
+      const el = wrap.current
+      if (!el) return
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      el.style.setProperty('--kb', `${kb}px`)
+      el.style.setProperty('--vvh', `${vv.height}px`)
+    }
+    apply()
+    vv.addEventListener('resize', apply)
+    vv.addEventListener('scroll', apply)
+    const onFocus = (e: FocusEvent) => {
+      const t = e.target as HTMLElement
+      if (t.matches?.('textarea, input') && panel.current?.contains(t)) {
+        setTimeout(() => t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 300)
+      }
+    }
+    document.addEventListener('focusin', onFocus)
+    return () => {
+      vv.removeEventListener('resize', apply)
+      vv.removeEventListener('scroll', apply)
+      document.removeEventListener('focusin', onFocus)
+    }
+  }, [open])
+
   if (!shown) return null
 
   const onTouchStart = (e: TouchEvent) => {
@@ -65,8 +94,14 @@ export function Sheet({ open, onClose, children, label }: {
   }
   const onTouchMove = (e: TouchEvent) => {
     const d = drag.current, el = panel.current
-    if (!d || !el || d.scroll) return
-    d.dy = Math.max(0, e.touches[0].clientY - d.y)
+    if (!d || !el) return
+    const dy = e.touches[0].clientY - d.y
+    // Тянуть панель можно, только если её содержимое прокручено к самому верху
+    if (el.scrollTop > 0) { d.scroll = true; d.y = e.touches[0].clientY; return }
+    if (d.scroll) { d.scroll = false; d.y = e.touches[0].clientY; return }
+    if (dy <= 0) return
+    e.preventDefault()
+    d.dy = dy
     el.style.transition = 'none'
     el.style.transform = `translateY(${d.dy}px)`
   }
@@ -80,10 +115,10 @@ export function Sheet({ open, onClose, children, label }: {
   }
 
   return (
-    <div class={`sheet-wrap${visible ? ' is-open' : ''}`}>
+    <div class={`sheet-wrap${visible ? ' is-open' : ''}`} ref={wrap}>
       <div class="sheet-backdrop" onClick={onClose} />
       <div class="sheet" ref={panel} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
-        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
         <div class="sheet-grip" aria-hidden="true" />
         <button class="icon-btn sheet-close" onClick={onClose} aria-label="Закрыть"><IconClose size={20} /></button>
         {children}
@@ -176,6 +211,8 @@ export function useSwipe(onSwipe: (dir: -1 | 1) => void) {
       // В полях ввода свайп двигает курсор — не перелистываем
       if ((e.target as HTMLElement).closest('textarea, input, .palettes, .sheet-wrap')) { start.current = null; return }
       const t = e.touches[0]
+      // У краёв экрана — системный жест «назад»
+      if (t.clientX < 24 || t.clientX > window.innerWidth - 24) { start.current = null; return }
       start.current = { x: t.clientX, y: t.clientY, t: Date.now() }
     },
     onTouchEnd: (e: TouchEvent) => {
@@ -185,6 +222,7 @@ export function useSwipe(onSwipe: (dir: -1 | 1) => void) {
       const t = e.changedTouches[0]
       const dx = t.clientX - s.x, dy = t.clientY - s.y
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.6 && Date.now() - s.t < 600) onSwipe(dx < 0 ? 1 : -1)
-    }
+    },
+    onTouchCancel: () => { start.current = null }
   }
 }

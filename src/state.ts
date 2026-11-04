@@ -59,10 +59,40 @@ export const sheetDay = signal<DayKey | null>(null)
 export const viewMonth = signal<{ y: number; m: number }>({ y: new Date().getFullYear(), m: new Date().getMonth() })
 export const viewYear = signal<number>(new Date().getFullYear())
 
+const SESSION_KEY = 'ottenki:session'
+
+/** Запомнить, где был пользователь, — для возвращения после перезагрузки при обновлении. */
+export function rememberSession() {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      at: Date.now(), tab: tab.value, focusDay: focusDay.value, sheetDay: sheetDay.value
+    }))
+  } catch { /* */ }
+}
+
+/** Время последнего ухода из приложения до перезагрузки (если было недавно). */
+export function restoreSession(): number | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    sessionStorage.removeItem(SESSION_KEY)
+    if (!raw) return null
+    const s = JSON.parse(raw)
+    if (typeof s?.at !== 'number' || Date.now() - s.at > 10 * 60_000) return null
+    if (typeof s.tab === 'string') tab.value = s.tab
+    if (typeof s.focusDay === 'string' && s.focusDay <= today.value) focusDay.value = s.focusDay
+    if (typeof s.sheetDay === 'string') sheetDay.value = s.sheetDay
+    return s.at
+  } catch {
+    return null
+  }
+}
+
 if (typeof window !== 'undefined') {
+  const busy = () => !!(document.activeElement as HTMLElement | null)?.closest?.('input, textarea') || sheetDay.value != null
   const refreshDay = () => {
     const t = todayKey()
-    if (t !== today.value) {
+    // Не перескакиваем на новый день посреди ввода — подождём, пока человек допишет.
+    if (t !== today.value && !(document.visibilityState === 'visible' && busy())) {
       batch(() => {
         const prev = parseKey(today.value), next = parseKey(t)
         if (focusDay.value === today.value) focusDay.value = t
@@ -123,14 +153,17 @@ function setEntries(fn: (entries: Data['entries']) => Data['entries']) {
   update(d => ({ ...d, entries: fn(d.entries) }))
 }
 
-/** Отметить день цветом. Возвращает функцию отмены. */
+/** Отметить день цветом. Возвращает функцию отмены — она возвращает только цвет, не трогая заметку и метки. */
 export function mark(day: DayKey, levelId: string): () => void {
   const before = data.value.entries[day]
   setEntries(es => ({ ...es, [day]: { ...before, level: levelId, at: Date.now() } }))
   return () => setEntries(es => {
+    const cur = es[day]
+    if (!cur || cur.level !== levelId) return es
     const next = { ...es }
-    if (before) next[day] = before
-    else delete next[day]
+    if (before) next[day] = { ...cur, level: before.level }
+    else if (!cur.note && !cur.tags?.length) delete next[day]
+    else return es
     return next
   })
 }

@@ -1,4 +1,5 @@
-import { useEffect } from 'preact/hooks'
+import { computed } from '@preact/signals'
+import { useEffect, useRef } from 'preact/hooks'
 import { CORRUPT_PREFIX } from './lib/storage'
 import { shareOrDownload } from './lib/poster'
 import { capitalize, compareKeys, humanDate, parseKey, relativeLabel, todayKey, WEEKDAYS, weekdayMon } from './lib/dates'
@@ -32,12 +33,15 @@ function applyTheme(theme: string) {
   const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
   const color = dark ? '#121110' : '#F2EEE6'
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', color))
-  document.getElementById('status-bar')?.setAttribute('content', dark ? 'black-translucent' : 'default')
 }
 
+// App подписан только на тему и знакомство — правка заметки не перерисовывает всё приложение.
+const themeSig = computed(() => data.value.settings.theme)
+const onboardedSig = computed(() => data.value.onboarded)
+const todayColor = computed(() => levelOf(today.value)?.color)
+
 export function App() {
-  const d = data.value
-  const theme = d.settings.theme
+  const theme = themeSig.value
 
   useEffect(() => {
     applyTheme(theme)
@@ -77,7 +81,7 @@ export function App() {
         {TABS.map(({ id, label, Icon }) => (
           <button key={id} class={`tabbar-btn${current === id ? ' is-on' : ''}`} aria-current={current === id ? 'page' : undefined}
             onClick={() => go(id)}>
-            {id === 'today' ? <IconToday size={24} dot={levelOf(today.value)?.color} /> : <Icon size={24} />}
+            {id === 'today' ? <IconToday size={24} dot={todayColor.value} /> : <Icon size={24} />}
             <span>{label}</span>
           </button>
         ))}
@@ -86,7 +90,7 @@ export function App() {
       <DaySheet />
       </>}
       <ToastHost />
-      {!d.onboarded && !corruptStored.value && !locked.value && <Onboarding />}
+      {!onboardedSig.value && !corruptStored.value && !locked.value && <Onboarding />}
       {locked.value && <LockScreen />}
       {shielded.value && !locked.value && <Shield />}
     </>
@@ -94,13 +98,17 @@ export function App() {
 }
 
 function DaySheet() {
-  const day = sheetDay.value
+  // Пока панель уезжает вниз, показываем в ней последний открытый день, а не пустоту
+  const last = useRef<string | null>(null)
+  if (sheetDay.value) last.current = sheetDay.value
+  const open = !!sheetDay.value
+  const day = sheetDay.value ?? last.current
   const now = today.value
   const close = () => { sheetDay.value = null }
   const level = day ? levelOf(day) : undefined
   const future = day ? compareKeys(day, now) > 0 : false
   return (
-    <Sheet open={!!day && !future} onClose={close} label="Отметка дня">
+    <Sheet open={open && !future} onClose={close} label="Отметка дня">
       {day && (
         <div class="sheet-body">
           <div class="eyebrow">{capitalize(WEEKDAYS[weekdayMon(day)])}{relativeLabel(day, now) ? ` · ${relativeLabel(day, now)}` : ''}</div>

@@ -193,7 +193,7 @@ function TagsEditor() {
       <p class="muted card-sub">Отмечайте, что было в течение дня, — в «Итогах» станет видно, что помогает, а что тянет вниз.</p>
       <div class="tags tags--edit">
         {d.tags.map(t => edit === t.id ? (
-          <input key={t.id} class="tag tag-input" autoFocus defaultValue={t.name} maxLength={32} aria-label="Название метки"
+          <input key={t.id} class="tag tag-input" ref={el => { if (el && document.activeElement !== el) el.focus() }} defaultValue={t.name} maxLength={32} aria-label="Название метки"
             onBlur={e => { renameTag(t.id, (e.target as HTMLInputElement).value); setEdit(null) }}
             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
         ) : (
@@ -223,7 +223,10 @@ function Look() {
       <h2 class="card-title">Вид</h2>
       <div class="field">
         <span class="field-label">Тема</span>
-        <Segmented label="Тема" value={s.theme} onChange={v => setSetting('theme', v)}
+        <Segmented label="Тема" value={s.theme} onChange={v => {
+          setSetting('theme', v)
+          if (isStandalone()) showToast('Цвет часов и батареи вверху обновится при следующем запуске')
+        }}
           options={[{ value: 'system', label: 'Авто' }, { value: 'light', label: 'Светлая' }, { value: 'dark', label: 'Тёмная' }]} />
       </div>
       <div class="field">

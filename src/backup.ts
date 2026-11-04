@@ -2,7 +2,7 @@
 
 import { todayKey } from './lib/dates'
 import type { Data } from './lib/model'
-import { shareOrDownload } from './lib/poster'
+import { shareOrDownload, sharePending } from './lib/poster'
 import { exportCsv, exportJson, sanitize } from './lib/storage'
 import { data, markBackedUp, showToast } from './state'
 
@@ -12,6 +12,7 @@ export async function saveBackup(kind: 'json' | 'csv' = 'json'): Promise<boolean
   const blob = new Blob([text], { type: kind === 'json' ? 'application/json' : 'text/csv' })
   const r = await shareOrDownload(blob, `ottenki-${todayKey()}.${kind}`, 'Копия «Оттенков»')
   if (r === 'cancelled') return false
+  if (r === 'needs-tap') { showToast('Копия готова', { label: 'Сохранить', run: () => { sharePending(); markBackedUp() } }, 10000); return false }
   if (kind === 'json') markBackedUp()
   if (r === 'downloaded') showToast('Файл сохранён')
   return true

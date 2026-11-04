@@ -323,7 +323,7 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 
 .scale { display: flex; flex-direction: column; }
 .scale-row {
-  --h: clamp(48px, calc((100dvh - 470px) / var(--rows)), 58px);
+  --h: clamp(48px, calc((100svh - 470px) / var(--rows)), 58px);
   position: relative;
   display: flex;
   align-items: center;
@@ -810,9 +810,10 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
   left: 0; right: 0; bottom: 0;
   max-width: 560px;
   margin: 0 auto;
-  max-height: calc(100dvh - var(--safe-t) - 24px);
+  bottom: var(--kb, 0px);
+  max-height: calc(var(--vvh, 100dvh) - var(--safe-t) - 24px);
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
   background: var(--bg);
   border-radius: 26px 26px 0 0;
   padding: 10px var(--gutter) calc(var(--safe-b) + 24px);

@@ -7,7 +7,7 @@ import { haptic } from '../lib/haptic'
 import {
   addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTHS, MONTHS_SHORT, parseKey, plural, ROMAN, weekdayMon
 } from '../lib/dates'
-import { renderPoster, shareOrDownload } from '../lib/poster'
+import { renderPoster, shareOrDownload, sharePending } from '../lib/poster'
 import { entriesIn, yearRange, elapsedDays } from '../lib/stats'
 import { data, go, levelOf, setSetting, sheetDay, showToast, today, viewMonth, viewYear } from '../state'
 import { IconLeft, IconRight, IconShare } from './icons'
@@ -30,7 +30,8 @@ export function Year() {
       const v = (n: string) => css.getPropertyValue(n).trim()
       const blob = await renderPoster(d, y, { bg: v('--bg'), ink: v('--ink'), muted: v('--muted'), empty: v('--empty') })
       const r = await shareOrDownload(blob, `ottenki-${y}.png`, `Мой ${y} в цвете`)
-      if (r === 'downloaded') showToast('Картинка сохранена')
+      if (r === 'needs-tap') showToast('Картинка готова', { label: 'Поделиться', run: sharePending }, 10000)
+      else if (r === 'downloaded') showToast('Картинка скачана')
     } catch {
       showToast('Не получилось сделать картинку')
     } finally {

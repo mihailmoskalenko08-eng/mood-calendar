@@ -8,7 +8,7 @@ import { inkOn, sampleRamp } from '../lib/color'
 import { levelAtScore, type Data } from '../lib/model'
 import {
   average, currentStreak, distribution, entriesIn, extremeMonths, isGood, longestRun, monthlyAverages,
-  monthRange, narrative, tagInsights, weekdayAverages, yearRange, yearsWithData, type Range
+  monthRange, narrative, tagInsights, weekdayAverages, yearRange, type Range
 } from '../lib/stats'
 import { data, go, levelsById, sheetDay, tagsById, today } from '../state'
 import { IconLeft, IconRight, IconSearch } from './icons'
@@ -28,6 +28,7 @@ export function Stats() {
   const range: Range | null = period === 'all' ? null : period === 'year' ? yearRange(ym.y) : monthRange(ym.y, ym.m)
   const list = useMemo(() => entriesIn(d, range), [d, range?.from, range?.to])
   const avg = average(d, list)
+  const story = useMemo(() => narrative(d, list, period === 'year' ? ym.y : null), [list, d.levels, d.tags, period, ym.y])
 
   const shift = (n: number) => {
     if (period === 'year') setYm({ ...ym, y: ym.y + n })
@@ -65,7 +66,7 @@ export function Stats() {
       ) : (
         <>
           <Hero d={d} avg={avg!} count={list.length} />
-          <Story lines={narrative(d, list, period === 'year' ? ym.y : null)} />
+          <Story lines={story} />
           <Distribution d={d} list={list} />
           {period !== 'month' && <ByMonth d={d} year={period === 'year' ? ym.y : null} />}
           <ByWeekday d={d} list={list} />
@@ -88,6 +89,21 @@ function Hero({ d, avg, count }: { d: Data; avg: number; count: number }) {
       <div class="hero-meta">{count} {plural(count, 'день', 'дня', 'дней')} в цвете · {fmt(avg * (d.levels.length - 1) + 1)} из {d.levels.length}</div>
     </div>
   )
+}
+
+/** Среднее по каждому месяцу за все годы — за один проход по записям. */
+function allTimeByMonth(d: Data): { avg: number | null; count: number }[] {
+  const acc = Array.from({ length: 12 }, () => ({ sum: 0, count: 0 }))
+  const idx = new Map(d.levels.map((l, i) => [l.id, i]))
+  const n = Math.max(1, d.levels.length - 1)
+  for (const [k, e] of Object.entries(d.entries)) {
+    const i = idx.get(e.level)
+    if (i == null) continue
+    const m = Number(k.slice(5, 7)) - 1
+    acc[m].sum += i / n
+    acc[m].count++
+  }
+  return acc.map(a => ({ avg: a.count ? a.sum / a.count : null, count: a.count }))
 }
 
 function Story({ lines }: { lines: string[] }) {
@@ -179,12 +195,7 @@ function Columns({ d, items, labels, titles, caption }: {
 
 function ByMonth({ d, year }: { d: Data; year: number | null }) {
   // «Всё время» — среднее по каждому месяцу за все годы; «Год» — по месяцам выбранного года
-  const items = year != null
-    ? monthlyAverages(d, year)
-    : Array.from({ length: 12 }, (_, m) => {
-      const all = yearsWithData(d).flatMap(y => entriesIn(d, monthRange(y, m)))
-      return { avg: average(d, all), count: all.length }
-    })
+  const items = useMemo(() => year != null ? monthlyAverages(d, year) : allTimeByMonth(d), [d.entries, d.levels, year])
   const ex = year != null ? extremeMonths(d, year) : { best: null, worst: null }
   return (
     <div class="card">

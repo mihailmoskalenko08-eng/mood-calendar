@@ -7,7 +7,7 @@ import { confetti, MILESTONES } from '../lib/confetti'
 import { currentStreak } from '../lib/stats'
 import { haptic } from '../lib/haptic'
 import { MAX_NOTE } from '../lib/model'
-import { clearDay, data, flushSave, go, mark, setNote, showToast, today, toggleTag } from '../state'
+import { clearDay, data, flushSave, go, mark, setNote, sheetDay, showToast, today, toggleTag } from '../state'
 import { IconCheck } from './icons'
 
 export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: boolean }) {
@@ -84,8 +84,15 @@ export function NoteField({ day }: { day: DayKey }) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    // Замер через height:auto на миг сжимает поле — сохраняем прокрутку, чтобы экран не прыгал
+    const scroller = el.closest('.sheet') as HTMLElement | null
+    const top = scroller ? scroller.scrollTop : window.scrollY
+    el.style.minHeight = `${el.offsetHeight}px`
     el.style.height = 'auto'
-    el.style.height = `${Math.min(320, el.scrollHeight)}px`
+    el.style.minHeight = ''
+    el.style.height = `${Math.min(320, Math.max(56, el.scrollHeight))}px`
+    if (scroller) scroller.scrollTop = top
+    else if (window.scrollY !== top) window.scrollTo(0, top)
   }, [value])
 
   useEffect(() => {
@@ -124,7 +131,7 @@ export function TagPicker({ day }: { day: DayKey }) {
   const entry = d.entries[day]
   if (!entry) return null
   if (!d.tags.length) {
-    return <button class="link-btn" onClick={() => go('settings')}>Добавить метки в настройках</button>
+    return <button class="link-btn" onClick={() => { sheetDay.value = null; go('settings') }}>Добавить метки в настройках</button>
   }
   const color = d.levels.find(l => l.id === entry.level)?.color ?? '#888888'
   return (
