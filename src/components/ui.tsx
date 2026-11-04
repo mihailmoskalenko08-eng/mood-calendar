@@ -152,6 +152,8 @@ export function useSwipe(onSwipe: (dir: -1 | 1) => void) {
   const start = useRef<{ x: number; y: number; t: number } | null>(null)
   return {
     onTouchStart: (e: TouchEvent) => {
+      // В полях ввода свайп двигает курсор — не перелистываем
+      if ((e.target as HTMLElement).closest('textarea, input, .palettes, .sheet-wrap')) { start.current = null; return }
       const t = e.touches[0]
       start.current = { x: t.clientX, y: t.clientY, t: Date.now() }
     },
