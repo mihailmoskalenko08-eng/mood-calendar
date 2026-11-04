@@ -29,12 +29,28 @@ export function Sheet({ open, onClose, children, label }: {
 
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const opener = document.activeElement as HTMLElement | null
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      // Tab не уходит за пределы панели
+      if (e.key === 'Tab' && panel.current) {
+        const items = panel.current.querySelectorAll<HTMLElement>('button:not(:disabled), textarea, input, [tabindex="0"]')
+        if (!items.length) return
+        const first = items[0], last = items[items.length - 1]
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+      }
+    }
     document.addEventListener('keydown', onKey)
     document.documentElement.classList.add('locked')
+    const background = [...document.querySelectorAll<HTMLElement>('.app, .tabbar')]
+    background.forEach(el => el.setAttribute('inert', ''))
+    requestAnimationFrame(() => panel.current?.focus({ preventScroll: true }))
     return () => {
       document.removeEventListener('keydown', onKey)
       document.documentElement.classList.remove('locked')
+      background.forEach(el => el.removeAttribute('inert'))
+      if (opener && document.contains(opener)) opener.focus({ preventScroll: true })
     }
   }, [open])
 
@@ -66,7 +82,7 @@ export function Sheet({ open, onClose, children, label }: {
   return (
     <div class={`sheet-wrap${visible ? ' is-open' : ''}`}>
       <div class="sheet-backdrop" onClick={onClose} />
-      <div class="sheet" ref={panel} role="dialog" aria-modal="true" aria-label={label}
+      <div class="sheet" ref={panel} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
         <div class="sheet-grip" aria-hidden="true" />
         <button class="icon-btn sheet-close" onClick={onClose} aria-label="Закрыть"><IconClose size={20} /></button>
@@ -126,11 +142,13 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
 }
 
 /** Кнопка, которая просит нажать второй раз для подтверждения. */
-export function ConfirmButton({ children, confirm, onConfirm, class: cls = '' }: {
+export function ConfirmButton({ children, confirm, onConfirm, class: cls = '', label }: {
   children: ComponentChildren
   confirm: string
   onConfirm: () => void
   class?: string
+  /** подпись для экранного диктора, если внутри только иконка */
+  label?: string
 }) {
   const [armed, setArmed] = useState(false)
   useEffect(() => {
@@ -139,7 +157,7 @@ export function ConfirmButton({ children, confirm, onConfirm, class: cls = '' }:
     return () => clearTimeout(t)
   }, [armed])
   return (
-    <button class={`${cls}${armed ? ' is-armed' : ''}`} onClick={() => {
+    <button class={`${cls}${armed ? ' is-armed' : ''}`} aria-label={armed ? confirm : label} onClick={() => {
       if (armed) { setArmed(false); onConfirm() } else setArmed(true)
     }}>
       {armed ? confirm : children}

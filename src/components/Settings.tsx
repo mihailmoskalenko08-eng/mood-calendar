@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'preact/hooks'
 import { inkOn, isHex, rampColors } from '../lib/color'
-import { plural } from '../lib/dates'
+import { plural, todayKey } from '../lib/dates'
 import { MAX_LEVELS, MAX_TAGS, MIN_LEVELS, PALETTES, countByLevel } from '../lib/model'
 import { shareOrDownload } from '../lib/poster'
 import { exportCsv, exportJson, sanitize } from '../lib/storage'
@@ -102,10 +102,10 @@ function ScaleEditor() {
                   else (e.target as HTMLInputElement).value = l.name
                 }} />
               <span class="level-count" title="Сколько дней отмечено">{counts[l.id] || ''}</span>
-              <button class="icon-btn sm" onClick={() => moveLevel(l.id, 1)} disabled={i === 0} aria-label="Выше"><IconUp size={18} /></button>
-              <button class="icon-btn sm" onClick={() => moveLevel(l.id, -1)} disabled={i === levels.length - 1} aria-label="Ниже"><IconDown size={18} /></button>
+              <button class="icon-btn sm" onClick={() => moveLevel(l.id, 1)} disabled={i === 0} aria-label={`Поднять «${l.name}» выше`}><IconUp size={18} /></button>
+              <button class="icon-btn sm" onClick={() => moveLevel(l.id, -1)} disabled={i === levels.length - 1} aria-label={`Опустить «${l.name}» ниже`}><IconDown size={18} /></button>
               {d.levels.length > MIN_LEVELS && (
-                <ConfirmButton class="icon-btn sm danger"
+                <ConfirmButton class="icon-btn sm danger" label={`Удалить уровень «${l.name}»`}
                   confirm={counts[l.id] ? `Удалить? ${counts[l.id]} ${plural(counts[l.id], 'день', 'дня', 'дней')} → соседний` : 'Точно?'}
                   onConfirm={() => deleteLevel(l.id)}>
                   <IconTrash size={18} />
@@ -130,9 +130,9 @@ function ColorPicker({ value, onPick }: { value: string; onPick: (c: string) => 
   return (
     <div class="picker">
       <div class="picker-grid">
-        {SWATCHES.map(c => (
+        {SWATCHES.map((c, i) => (
           <button key={c} class={`picker-c${c === value.toUpperCase() ? ' is-on' : ''}`} style={{ background: c }}
-            aria-label={c} onClick={() => onPick(c)} />
+            aria-label={`Цвет ${i + 1} из ${SWATCHES.length}`} aria-pressed={c === value.toUpperCase()} onClick={() => onPick(c)} />
         ))}
       </div>
       <label class="picker-own">
@@ -151,7 +151,7 @@ function ResetScale() {
   const d = data.value
   const [open, setOpen] = useState(false)
   const [n, setN] = useState(d.levels.length)
-  if (!open) return <button class="pill-btn ghost" onClick={() => setOpen(true)}>Другое число цветов</button>
+  if (!open) return <button class="pill-btn ghost" onClick={() => { setN(d.levels.length); setOpen(true) }}>Другое число цветов</button>
   return (
     <div class="reset">
       <div class="stepper">
@@ -190,15 +190,15 @@ function TagsEditor() {
       <p class="muted card-sub">Отмечайте, что было в течение дня, — в «Итогах» станет видно, что помогает, а что тянет вниз.</p>
       <div class="tags tags--edit">
         {d.tags.map(t => edit === t.id ? (
-          <input key={t.id} class="tag tag-input" autoFocus defaultValue={t.name} maxLength={32}
+          <input key={t.id} class="tag tag-input" autoFocus defaultValue={t.name} maxLength={32} aria-label="Название метки"
             onBlur={e => { renameTag(t.id, (e.target as HTMLInputElement).value); setEdit(null) }}
             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
         ) : (
           <span key={t.id} class="tag tag--editable">
-            <button class="tag-label" onClick={() => setEdit(t.id)}>{t.name}</button>
+            <button class="tag-label" onClick={() => setEdit(t.id)} aria-label={`Переименовать метку «${t.name}»`}>{t.name}</button>
             <button class="tag-x" aria-label={`Удалить метку «${t.name}»`} onClick={() => {
-              deleteTag(t.id)
-              showToast(`Метка «${t.name}» удалена`)
+              const undo = deleteTag(t.id)
+              showToast(`Метка «${t.name}» удалена`, { label: 'Вернуть', run: undo }, 6000)
             }}><IconClose size={14} /></button>
           </span>
         ))}
@@ -234,7 +234,6 @@ function Look() {
 }
 
 function Reminder() {
-  const url = typeof location !== 'undefined' ? location.origin + location.pathname : ''
   return (
     <details class="card disclosure">
       <summary><h2 class="card-title">Напоминание каждый вечер</h2></summary>
@@ -243,11 +242,8 @@ function Reminder() {
         <li>Откройте <b>«Команды»</b> → вкладка <b>«Автоматизация»</b> → <b>«+»</b></li>
         <li>Выберите <b>«Время суток»</b>, например 21:30, <b>«Ежедневно»</b>, и <b>«Запускать сразу»</b></li>
         <li>Добавьте действие <b>«Показать уведомление»</b> с текстом «Как прошёл день?»</li>
-        <li>Или действие <b>«Открыть URL»</b> с адресом ниже — тогда сразу откроются «Оттенки»</li>
       </ol>
-      <button class="copy" onClick={async () => {
-        try { await navigator.clipboard.writeText(url); showToast('Адрес скопирован') } catch { showToast(url) }
-      }}><code>{url}</code><span>Скопировать</span></button>
+      <p class="muted card-sub">Действие «Открыть URL» не подойдёт: ссылка откроется в Safari, а у Safari отдельное хранилище — отметки окажутся не в приложении с иконки.</p>
     </details>
   )
 }
@@ -258,7 +254,7 @@ function DataSection() {
   const [pending, setPending] = useState<ReturnType<typeof sanitize> | null>(null)
   const total = Object.keys(d.entries).length
   const days = d.lastBackup ? Math.floor((Date.now() - d.lastBackup) / 86400000) : null
-  const stamp = new Date().toISOString().slice(0, 10)
+  const stamp = todayKey()
 
   const exportFile = async (kind: 'json' | 'csv') => {
     const text = kind === 'json' ? exportJson(d) : exportCsv(d)

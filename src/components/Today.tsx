@@ -63,7 +63,7 @@ export function Today() {
 
       {level && d.settings.showDetails && (
         <div class="details">
-          <NoteField day={day} />
+          <NoteField key={day} day={day} />
           <TagPicker day={day} />
           <ClearDay day={day} />
         </div>

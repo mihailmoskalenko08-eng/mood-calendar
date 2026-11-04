@@ -121,6 +121,34 @@ describe('хранение', () => {
     expect(r.recovered).toBe(true)
     expect(r.data.entries['2026-11-01']).toBeTruthy()
   })
+  it('нечитаемые данные откладываются, а не затираются', () => {
+    const s = mem()
+    s.m.set('ottenki:data:v1', '{broken')
+    s.m.set('ottenki:data:prev', '{"also": "broken"}')
+    const r = load(s)
+    expect(r.corrupt).toBe(true)
+    const keys = [...s.m.keys()].filter(k => k.startsWith('ottenki:data:broken:'))
+    expect(keys).toHaveLength(2)
+    expect(s.m.get(keys.find(k => !k.endsWith(':prev'))!)).toBe('{broken')
+  })
+  it('при нехватке места жертвует запасной копией', () => {
+    const m = new Map<string, string>()
+    const store: Store = {
+      getItem: k => m.get(k) ?? null,
+      setItem: (k, v) => {
+        const total = [...m.entries()].filter(([x]) => x !== k).reduce((a, [, x]) => a + x.length, 0) + v.length
+        if (total > 2500) throw new Error('QuotaExceededError')
+        m.set(k, v)
+      },
+      removeItem: k => void m.delete(k)
+    }
+    const a = withEntries([['2026-11-01', 1]])
+    expect(save(a, store)).toBe(true)
+    const b = withEntries([['2026-11-01', 1], ['2026-11-02', 2]])
+    b.entries['2026-11-02'].note = 'x'.repeat(400)
+    expect(save(b, store)).toBe(true)
+    expect(JSON.parse(m.get('ottenki:data:v1')!).entries['2026-11-02'].note).toHaveLength(400)
+  })
   it('без хранилища — данные по умолчанию', () => {
     expect(load(null).available).toBe(false)
   })
@@ -143,6 +171,17 @@ describe('хранение', () => {
     const m = merge(a, b)
     expect(Object.keys(m.entries).sort()).toEqual(['2026-11-01', '2026-11-02', '2026-11-03'])
     expect(m.entries['2026-11-02'].level).toBe(b.levels[6].id)
+  })
+  it('слияние не теряет заметки и метки', () => {
+    const a = withEntries([['2026-11-01', 1, ['t1']]])
+    a.entries['2026-11-01'].note = 'моя заметка'
+    a.entries['2026-11-01'].at = 1
+    const b = withEntries([['2026-11-01', 5, ['t2']]])
+    b.entries['2026-11-01'].at = 9
+    const m = merge(a, b)
+    expect(m.entries['2026-11-01'].level).toBe(b.levels[5].id)
+    expect(m.entries['2026-11-01'].note).toBe('моя заметка')
+    expect(m.entries['2026-11-01'].tags?.sort()).toEqual(['t1', 't2'])
   })
   it('CSV с кавычками', () => {
     const d = withEntries([['2026-11-04', 5]])

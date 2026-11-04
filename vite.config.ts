@@ -11,7 +11,7 @@ export default defineConfig({
   plugins: [
     preact(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       injectRegister: false,
       includeAssets: ['icons/*.png', 'icons/*.svg'],
       manifest: {
@@ -34,6 +34,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,png,svg}'],
         globIgnores: ['splash/**'],
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         navigateFallback: '/mood-calendar/index.html'
       }
     })

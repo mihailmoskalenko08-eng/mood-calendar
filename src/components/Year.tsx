@@ -3,7 +3,7 @@
 import { Fragment } from 'preact'
 import { useState } from 'preact/hooks'
 import {
-  addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTH_LETTERS, MONTHS_SHORT, parseKey, weekdayMon
+  addDays, compareKeys, daysInMonth, humanDate, keyOf, MONTH_LETTERS, MONTHS_SHORT, parseKey, plural, weekdayMon
 } from '../lib/dates'
 import { renderPoster, shareOrDownload } from '../lib/poster'
 import { entriesIn, yearRange, elapsedDays } from '../lib/stats'
@@ -40,7 +40,7 @@ export function Year() {
     <section class="screen year" {...swipe}>
       <header class="screen-head">
         <div>
-          <div class="eyebrow">{marked} из {elapsed || 0} дней в цвете</div>
+          <div class="eyebrow">{marked} из {elapsed} {plural(elapsed, 'дня', 'дней', 'дней')} в цвете</div>
           <h1 class="display screen-title year-title" key={y}>{y}</h1>
         </div>
         <div class="head-nav">

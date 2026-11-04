@@ -741,9 +741,9 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 .tags--edit { margin-bottom: 14px; }
 .tag--editable { padding: 0 4px 0 14px; gap: 2px; }
 .tag-label { padding: 6px 0; }
-.tag-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
+.tag-x { width: 36px; height: 36px; margin: -4px -4px -4px 0; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
 .tag-x:active { background: var(--line); }
-.tag-input { border: 0; background: var(--bg); outline: none; width: 140px; }
+.tag-input { border: 0; background: var(--bg); outline: none; width: 140px; font-size: 16px; }
 .add-tag { display: flex; gap: 8px; }
 .add-tag input { flex: 1; min-width: 0; min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--bg); outline: none; }
 
@@ -824,6 +824,22 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
   box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.35);
 }
 .toast.is-on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+/* Пока открыта нижняя панель — уведомление сверху, чтобы не закрывать её кнопки */
+html.locked .toast { bottom: auto; top: calc(var(--safe-t) + 12px); transform: translate(-50%, -20px); }
+html.locked .toast.is-on { transform: translate(-50%, 0); }
+.sheet:focus { outline: none; }
+.banner {
+  position: relative;
+  z-index: 2;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--ink);
+  font-size: 15px;
+}
+.banner p { margin: 0 0 10px; }
+.banner .row-actions { margin-top: 4px; }
 .toast button { font-weight: 650; padding: 4px 6px; border-radius: 8px; text-decoration: underline; text-underline-offset: 3px; flex: none; }
 
 /* ——— Знакомство ——— */
@@ -885,3 +901,4 @@ input, textarea { font-size: 16px; } /* iOS не приближает поле �
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
 }
+.tag-ins + .card-sub { margin: 16px 0 0; }

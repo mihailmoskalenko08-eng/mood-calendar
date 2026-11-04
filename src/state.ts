@@ -1,32 +1,48 @@
 // Состояние приложения: данные (сохраняются на устройстве), навигация, всплывающие уведомления.
 
 import { batch, computed, effect, signal } from '@preact/signals'
-import { todayKey, type DayKey } from './lib/dates'
+import { parseKey, todayKey, type DayKey } from './lib/dates'
 import {
   MAX_LEVELS, MAX_NOTE, MAX_TAGS, MIN_LEVELS, defaultNames, newId, recolor, removeLevel,
   type Data, type Entry, type Level, type Settings
 } from './lib/model'
 import { rampColors } from './lib/color'
 import { paletteById } from './lib/model'
-import { load, merge, save } from './lib/storage'
+import { load, merge, save, STORAGE_KEY } from './lib/storage'
 
 const initial = load()
 export const data = signal<Data>(initial.data)
 export const storageAvailable = initial.available
 export const recoveredFromBackup = initial.recovered
+/** Сохранённые данные не прочитались; они отложены в отдельный ключ, а запись выключена до решения пользователя. */
+export const corruptStored = signal(initial.corrupt)
 export const saveFailed = signal(false)
 
 let timer: ReturnType<typeof setTimeout> | undefined
+/** Не сохранять, пока данные из хранилища не удалось прочитать (чтобы не затереть их умолчаниями). */
+let writable = storageAvailable && !initial.corrupt
 effect(() => {
   const d = data.value
   clearTimeout(timer)
-  timer = setTimeout(() => { saveFailed.value = !save(d) && storageAvailable }, 150)
+  if (!writable) return
+  timer = setTimeout(() => { saveFailed.value = !save(d) }, 150)
 })
-// Сохранить немедленно, если приложение сворачивают.
+
+/** Сохранить прямо сейчас, без задержки. */
+export function flushSave() {
+  clearTimeout(timer)
+  if (writable) saveFailed.value = !save(data.value)
+}
+
 if (typeof document !== 'undefined') {
-  const flush = () => { clearTimeout(timer); save(data.value) }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush() })
-  window.addEventListener('pagehide', flush)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave() })
+  window.addEventListener('pagehide', flushSave)
+  // Изменения из другой вкладки — перечитать, чтобы не затереть их своей старой копией.
+  window.addEventListener('storage', e => {
+    if (e.key !== STORAGE_KEY || !e.newValue) return
+    const next = load()
+    if (next.available && !next.corrupt) { clearTimeout(timer); data.value = next.data }
+  })
 }
 
 // ——— Навигация ———
@@ -48,7 +64,12 @@ if (typeof window !== 'undefined') {
     const t = todayKey()
     if (t !== today.value) {
       batch(() => {
+        const prev = parseKey(today.value), next = parseKey(t)
         if (focusDay.value === today.value) focusDay.value = t
+        if (viewMonth.value.y === prev.getFullYear() && viewMonth.value.m === prev.getMonth()) {
+          viewMonth.value = { y: next.getFullYear(), m: next.getMonth() }
+        }
+        if (viewYear.value === prev.getFullYear()) viewYear.value = next.getFullYear()
         today.value = t
       })
     }
@@ -71,7 +92,7 @@ export interface Toast {
 }
 export const toast = signal<Toast | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | undefined
-export function showToast(text: string, action?: Toast['action'], ms = 4000) {
+export function showToast(text: string, action?: Toast['action'], ms = 5500) {
   clearTimeout(toastTimer)
   toast.value = { id: Date.now(), text, action }
   toastTimer = setTimeout(() => { toast.value = null }, ms)
@@ -132,6 +153,8 @@ function patchEntry(day: DayKey, patch: (e: Entry) => Entry) {
 }
 
 export function setNote(day: DayKey, note: string) {
+  const cur = data.value.entries[day]
+  if (!cur || (cur.note ?? '') === (note.trim() ? note.slice(0, MAX_NOTE) : '')) return
   patchEntry(day, e => {
     const next = { ...e }
     const n = note.slice(0, MAX_NOTE)
@@ -184,7 +207,8 @@ export function addLevel() {
     const n = d.levels.length + 1
     const names = defaultNames(n)
     const used = new Set(d.levels.map(l => l.name))
-    const name = names.find(x => !used.has(x)) ?? `Уровень ${n}`
+    const top = names[n - 1]
+    const name = !used.has(top) ? top : !used.has('Лучший день') ? 'Лучший день' : 'Новый уровень'
     const color = d.palette !== 'custom' ? rampColors(paletteById(d.palette).stops, n)[n - 1] : '#888888'
     const levels = [...d.levels, { id: newId('l'), name, color }]
     return { ...d, levels: d.palette !== 'custom' ? recolor(levels, d.palette) : levels }
@@ -228,7 +252,8 @@ export function renameTag(id: string, name: string) {
   update(d => ({ ...d, tags: d.tags.map(t => t.id === id ? { ...t, name: n } : t) }))
 }
 
-export function deleteTag(id: string) {
+export function deleteTag(id: string): () => void {
+  const before = data.value
   update(d => {
     const entries: Data['entries'] = {}
     for (const [k, e] of Object.entries(d.entries)) {
@@ -241,6 +266,19 @@ export function deleteTag(id: string) {
       } else entries[k] = e
     }
     return { ...d, tags: d.tags.filter(t => t.id !== id), entries }
+  })
+  return () => update(d => {
+    // Вернуть метку и её отметки, не трогая остальные изменения
+    const entries = { ...d.entries }
+    for (const [k, e] of Object.entries(before.entries)) {
+      if (e.tags?.includes(id) && entries[k] && !entries[k].tags?.includes(id)) {
+        entries[k] = { ...entries[k], tags: [...(entries[k].tags ?? []), id] }
+      }
+    }
+    const idx = before.tags.findIndex(t => t.id === id)
+    const tags = [...d.tags]
+    tags.splice(Math.min(idx, tags.length), 0, before.tags[idx])
+    return { ...d, tags, entries }
   })
 }
 
@@ -259,9 +297,17 @@ export function markBackedUp() {
 }
 
 export function replaceAll(next: Data) {
+  if (storageAvailable) { writable = true; corruptStored.value = false }
   data.value = { ...next, onboarded: true }
 }
 
+/** Начать с чистого листа поверх нечитаемых данных (они остаются отложенными в хранилище). */
+export function startFresh() {
+  if (storageAvailable) { writable = true; corruptStored.value = false }
+  data.value = { ...data.value }
+}
+
 export function mergeIn(incoming: Data) {
+  if (storageAvailable) { writable = true; corruptStored.value = false }
   update(d => merge(d, incoming))
 }

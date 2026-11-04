@@ -79,7 +79,42 @@ async function step(name, fn) {
     assert.equal(d.entries[today].note, 'Текст сегодняшнего дня')
     const prev = Object.keys(d.entries).find(k => k < today)
     assert.equal(prev, undefined, 'у вчерашнего дня не должно появиться записи')
+    assert.equal(await page.locator('.note textarea').count(), 0, 'у неотмеченного дня нет поля заметки')
     await page.click('[aria-label="Следующий день"]')
+  })
+
+  await step('заметка в фокусе не переезжает на другой день при нажатии в полосе недели', async () => {
+    // вчера: отметить и написать заметку
+    await page.click('[aria-label="Предыдущий день"]')
+    await page.click('.scale-row:has-text("Нормально")')
+    await page.fill('.note textarea', 'Вчерашняя заметка')
+    await page.locator('.note textarea').blur()
+    await page.click('[aria-label="Следующий день"]')
+    // сегодня: начать печатать и, не убирая фокус, перейти на вчера
+    await page.locator('.note textarea').click()
+    await page.keyboard.type(' (дописал)')
+    await page.locator('.week-day:not(.is-today):not(:disabled)').last().dispatchEvent('click')
+    await page.waitForTimeout(100)
+    await page.locator('body').click({ position: { x: 5, y: 5 } })
+    await page.waitForTimeout(600)
+    const d = await stored()
+    const y = Object.keys(d.entries).find(k => k < today)
+    assert.equal(d.entries[y].note, 'Вчерашняя заметка')
+    assert.equal(d.entries[today].note, 'Текст сегодняшнего дня (дописал)')
+    await page.click('[aria-label="Следующий день"]')
+  })
+
+  await step('текст в нижней панели сохраняется при мгновенном закрытии', async () => {
+    await page.click('.tabbar-btn:has-text("Месяц")')
+    await page.locator('.cal-cell.is-today').click()
+    await page.waitForSelector('.sheet-wrap.is-open')
+    await page.locator('.sheet .note textarea').click()
+    await page.keyboard.type('!')
+    await page.click('.sheet-close')
+    await page.waitForTimeout(500)
+    const d = await stored()
+    assert.equal(d.entries[today].note, 'Текст сегодняшнего дня (дописал)!')
+    await page.click('.tabbar-btn:has-text("День")')
   })
 
   await step('месяц: отметить день через нижнюю панель', async () => {
@@ -97,7 +132,7 @@ async function step(name, fn) {
     await page.waitForTimeout(450)
     assert.equal(await page.locator('.sheet-wrap').count(), 0)
     const d = await stored()
-    assert.equal(Object.keys(d.entries).length, 2)
+    assert.equal(Object.keys(d.entries).length, 3)
   })
 
   await step('год: оба вида и картинка', async () => {

@@ -10,7 +10,7 @@
   <meta name="color-scheme" content="light dark" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" id="status-bar" />
   <meta name="apple-mobile-web-app-title" content="Оттенки" />
   <meta name="format-detection" content="telephone=no" />
   <link rel="icon" href="/mood-calendar/icons/icon.svg" type="image/svg+xml" />
@@ -37,6 +37,11 @@
       var d = JSON.parse(localStorage.getItem('ottenki:data:v1') || 'null')
       var t = d && d.settings && d.settings.theme
       if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t)
+    } catch (e) {}
+    // Строка состояния iPhone: на тёмном фоне — прозрачная со светлым текстом, на светлом — обычная с тёмным
+    try {
+      var dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+      if (dark) document.getElementById('status-bar').setAttribute('content', 'black-translucent')
     } catch (e) {}
   </script>
 </head>

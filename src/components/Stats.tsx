@@ -65,7 +65,7 @@ export function Stats() {
           <Distribution d={d} list={list} />
           {period !== 'month' && <ByMonth d={d} year={period === 'year' ? ym.y : null} />}
           <ByWeekday d={d} list={list} />
-          <Streaks d={d} range={range} now={now} period={period} />
+          <Streaks d={d} range={range} now={now} />
           <Tags d={d} list={list} />
           <Notes list={list} />
         </>
@@ -191,7 +191,7 @@ function ByWeekday({ d, list }: { d: Data; list: ReturnType<typeof entriesIn> })
   )
 }
 
-function Streaks({ d, range, now, period }: { d: Data; range: Range | null; now: string; period: Period }) {
+function Streaks({ d, range, now }: { d: Data; range: Range | null; now: string }) {
   const marked = longestRun(d, () => true, range)
   const good = longestRun(d, e => isGood(d, e), range)
   const cur = currentStreak(d, now)
@@ -202,7 +202,7 @@ function Streaks({ d, range, now, period }: { d: Data; range: Range | null; now:
     <div class="card">
       <h2 class="card-title">Серии</h2>
       <div class="tiles">
-        {period !== 'month' || range?.to! >= now ? (
+        {range === null || range.to >= now ? (
           <div class="tile">
             <span class="eyebrow">Сейчас подряд</span>
             <span class="display tile-num">{cur}</span>

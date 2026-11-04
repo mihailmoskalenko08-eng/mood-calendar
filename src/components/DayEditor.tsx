@@ -5,7 +5,7 @@ import { inkOn, withAlpha } from '../lib/color'
 import type { DayKey } from '../lib/dates'
 import { haptic } from '../lib/haptic'
 import { MAX_NOTE } from '../lib/model'
-import { clearDay, data, go, mark, setNote, showToast, toggleTag } from '../state'
+import { clearDay, data, flushSave, go, mark, setNote, showToast, toggleTag } from '../state'
 import { IconCheck } from './icons'
 
 export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: boolean }) {
@@ -21,7 +21,7 @@ export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: b
     const undo = mark(day, id)
     setBurst(id)
     setTimeout(() => setBurst(b => (b === id ? null : b)), 700)
-    showToast(`${level.name}`, { label: 'Отменить', run: undo }, 3200)
+    showToast(`${level.name}`, { label: 'Отменить', run: undo }, 5000)
   }
 
   return (
@@ -46,17 +46,30 @@ export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: b
   )
 }
 
+/**
+ * Заметка. Компонент привязан к одному дню (снаружи ставится key={day}): несохранённый текст
+ * всегда уходит в свой день — при паузе в наборе, потере фокуса, закрытии панели и сворачивании приложения.
+ */
 export function NoteField({ day }: { day: DayKey }) {
   const entry = data.value.entries[day]
   const [value, setValue] = useState(entry?.note ?? '')
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const ref = useRef<HTMLTextAreaElement>(null)
   const focused = useRef(false)
+  const pending = useRef<string | null>(null)
 
-  // Сменился день или запись поменялась снаружи — показать актуальный текст.
+  const flush = () => {
+    clearTimeout(timer.current)
+    if (pending.current == null) return
+    const text = pending.current
+    pending.current = null
+    setNote(day, text)
+  }
+
+  // Запись поменялась снаружи (отмена, загрузка копии) — показать актуальный текст, если сейчас не печатают.
   useEffect(() => {
-    if (!focused.current) setValue(data.value.entries[day]?.note ?? '')
-  }, [day, entry?.note])
+    if (!focused.current && pending.current == null) setValue(entry?.note ?? '')
+  }, [entry?.note])
 
   useEffect(() => {
     const el = ref.current
@@ -65,7 +78,17 @@ export function NoteField({ day }: { day: DayKey }) {
     el.style.height = `${Math.min(320, el.scrollHeight)}px`
   }, [value])
 
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') { flush(); flushSave() } }
+    const onPageHide = () => { flush(); flushSave() }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', onPageHide)
+      flush()
+    }
+  }, [])
 
   if (!entry) return null
   return (
@@ -73,12 +96,13 @@ export function NoteField({ day }: { day: DayKey }) {
       <span class="visually-hidden">Заметка о дне</span>
       <textarea ref={ref} rows={2} maxLength={MAX_NOTE} value={value} placeholder="Пара слов о дне…"
         onFocus={() => { focused.current = true }}
-        onBlur={() => { focused.current = false; clearTimeout(timer.current); setNote(day, value) }}
+        onBlur={() => { focused.current = false; flush() }}
         onInput={e => {
           const v = (e.target as HTMLTextAreaElement).value
           setValue(v)
+          pending.current = v
           clearTimeout(timer.current)
-          timer.current = setTimeout(() => setNote(day, v), 400)
+          timer.current = setTimeout(flush, 400)
         }} />
       {value.length > MAX_NOTE - 200 && <span class="note-count">{value.length}/{MAX_NOTE}</span>}
     </label>

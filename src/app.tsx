@@ -1,7 +1,10 @@
 import { useEffect } from 'preact/hooks'
-import { capitalize, compareKeys, humanDate, relativeLabel, WEEKDAYS, weekdayMon } from './lib/dates'
+import { CORRUPT_PREFIX } from './lib/storage'
+import { shareOrDownload } from './lib/poster'
+import { capitalize, compareKeys, humanDate, relativeLabel, todayKey, WEEKDAYS, weekdayMon } from './lib/dates'
 import {
-  data, go, levelOf, recoveredFromBackup, saveFailed, sheetDay, showToast, storageAvailable, tab, today, type Tab
+  corruptStored, data, go, levelOf, recoveredFromBackup, saveFailed, sheetDay, showToast, startFresh, storageAvailable,
+  tab, today, type Tab
 } from './state'
 import { ClearDay, NoteField, ScalePicker, TagPicker } from './components/DayEditor'
 import { IconMonth, IconMore, IconStats, IconToday, IconYear } from './components/icons'
@@ -28,6 +31,7 @@ function applyTheme(theme: string) {
   const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
   const color = dark ? '#121110' : '#F2EEE6'
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', color))
+  document.getElementById('status-bar')?.setAttribute('content', dark ? 'black-translucent' : 'default')
 }
 
 export function App() {
@@ -51,10 +55,6 @@ export function App() {
     navigator.storage?.persist?.().catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (saveFailed.value) showToast('Не удалось сохранить — память устройства переполнена?', undefined, 6000)
-  }, [saveFailed.value])
-
   // Наверх при смене вкладки
   useEffect(() => { window.scrollTo({ top: 0 }) }, [tab.value])
 
@@ -63,6 +63,7 @@ export function App() {
   return (
     <>
       <main class="app" id="main">
+        <StorageBanners />
         {current === 'today' && <Today />}
         {current === 'month' && <Month />}
         {current === 'year' && <Year />}
@@ -82,7 +83,7 @@ export function App() {
 
       <DaySheet />
       <ToastHost />
-      {!d.onboarded && <Onboarding />}
+      {!d.onboarded && !corruptStored.value && <Onboarding />}
     </>
   )
 }
@@ -102,7 +103,7 @@ function DaySheet() {
           <ScalePicker day={day} compact />
           {level && (
             <div class="details">
-              <NoteField day={day} />
+              <NoteField key={day} day={day} />
               <TagPicker day={day} />
               <ClearDay day={day} after={close} />
             </div>
@@ -111,4 +112,38 @@ function DaySheet() {
       )}
     </Sheet>
   )
+}
+
+/** Постоянные предупреждения о хранилище: пока проблема не решена, они не исчезают. */
+function StorageBanners() {
+  if (corruptStored.value) {
+    const download = () => {
+      const raw: string[] = []
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)!
+          if (k.startsWith(CORRUPT_PREFIX)) raw.push(localStorage.getItem(k) ?? '')
+        }
+      } catch { /* */ }
+      const blob = new Blob([raw.join('\n\n')], { type: 'application/json' })
+      shareOrDownload(blob, `ottenki-raw-${todayKey()}.json`, 'Данные «Оттенков»')
+    }
+    return (
+      <div class="banner" role="alert">
+        <p>Сохранённые отметки не удалось прочитать. Они не удалены — их можно скачать и попробовать загрузить в «Ещё → Данные».</p>
+        <div class="row-actions">
+          <button class="pill-btn" onClick={download}>Скачать данные</button>
+          <button class="pill-btn ghost" onClick={startFresh}>Начать заново</button>
+        </div>
+      </div>
+    )
+  }
+  if (saveFailed.value) {
+    return (
+      <div class="banner" role="alert">
+        <p>Не получается сохранить отметки — похоже, на устройстве кончилось место. Сохраните копию в «Ещё → Данные», чтобы ничего не потерять.</p>
+      </div>
+    )
+  }
+  return null
 }

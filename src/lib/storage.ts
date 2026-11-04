@@ -99,6 +99,7 @@ export function sanitize(raw: unknown): Data {
 export interface Store {
   getItem(k: string): string | null
   setItem(k: string, v: string): void
+  removeItem?(k: string): void
 }
 
 function safeStore(): Store | null {
@@ -113,18 +114,40 @@ function safeStore(): Store | null {
   }
 }
 
-export function load(store: Store | null = safeStore()): { data: Data; recovered: boolean; available: boolean } {
-  if (!store) return { data: defaultData(), recovered: false, available: false }
+export interface Loaded {
+  data: Data
+  recovered: boolean
+  available: boolean
+  /** в хранилище что-то было, но прочитать не удалось — сырые данные отложены под CORRUPT_PREFIX */
+  corrupt: boolean
+}
+
+export const CORRUPT_PREFIX = 'ottenki:data:broken:'
+
+export function load(store: Store | null = safeStore()): Loaded {
+  if (!store) return { data: defaultData(), recovered: false, available: false, corrupt: false }
+  let sawData = false
   for (const key of [STORAGE_KEY, BACKUP_KEY]) {
     const raw = store.getItem(key)
     if (!raw) continue
+    sawData = true
     try {
-      return { data: sanitize(JSON.parse(raw)), recovered: key === BACKUP_KEY, available: true }
+      return { data: sanitize(JSON.parse(raw)), recovered: key === BACKUP_KEY, available: true, corrupt: false }
     } catch {
       /* пробуем запасную копию */
     }
   }
-  return { data: defaultData(), recovered: false, available: true }
+  if (sawData) {
+    // Ничего не стираем: откладываем обе копии как есть, чтобы их можно было достать.
+    try {
+      const stamp = Date.now()
+      const main = store.getItem(STORAGE_KEY)
+      const prev = store.getItem(BACKUP_KEY)
+      if (main) store.setItem(`${CORRUPT_PREFIX}${stamp}`, main)
+      if (prev && prev !== main) store.setItem(`${CORRUPT_PREFIX}${stamp}:prev`, prev)
+    } catch { /* места нет — данные всё равно не перезапишутся: запись выключена */ }
+  }
+  return { data: defaultData(), recovered: false, available: true, corrupt: sawData }
 }
 
 let lastSaved = ''
@@ -132,15 +155,27 @@ export function save(data: Data, store: Store | null = safeStore()): boolean {
   if (!store) return false
   const json = JSON.stringify(data)
   if (json === lastSaved) return true
+  // Предыдущая версия остаётся запасной — если запись оборвётся, данные не пропадут.
   try {
-    // Предыдущая версия остаётся запасной — если запись оборвётся, данные не пропадут.
     const prev = store.getItem(STORAGE_KEY)
-    if (prev) store.setItem(BACKUP_KEY, prev)
+    if (prev && prev !== json) store.setItem(BACKUP_KEY, prev)
+  } catch {
+    // Не хватило места на две копии — жертвуем запасной, основная важнее.
+    try { store.removeItem?.(BACKUP_KEY) } catch { /* */ }
+  }
+  try {
     store.setItem(STORAGE_KEY, json)
     lastSaved = json
     return true
   } catch {
-    return false
+    try {
+      ;store.removeItem?.(BACKUP_KEY)
+      store.setItem(STORAGE_KEY, json)
+      lastSaved = json
+      return true
+    } catch {
+      return false
+    }
   }
 }
 
@@ -161,7 +196,16 @@ export function merge(current: Data, incoming: Data): Data {
   const extraTags = current.tags.filter(t => !tagIds.has(t.id))
   for (const [k, e] of Object.entries(incoming.entries)) {
     const mine = entries[k]
-    if (!mine || e.at >= mine.at) entries[k] = e
+    if (!mine) { entries[k] = e; continue }
+    // Цвет — из более свежей записи; заметка и метки не теряются ни с одной стороны.
+    const newer = e.at >= mine.at ? e : mine
+    const older = newer === e ? mine : e
+    const tags = [...new Set([...(newer.tags ?? []), ...(older.tags ?? [])])]
+    const merged: Entry = { level: newer.level, at: Math.max(e.at, mine.at) }
+    const note = newer.note?.trim() ? newer.note : older.note
+    if (note?.trim()) merged.note = note
+    if (tags.length) merged.tags = tags
+    entries[k] = merged
   }
   return {
     ...current,
