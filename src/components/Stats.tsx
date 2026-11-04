@@ -8,7 +8,7 @@ import { inkOn, sampleRamp } from '../lib/color'
 import { levelAtScore, type Data } from '../lib/model'
 import {
   average, currentStreak, distribution, entriesIn, extremeMonths, isGood, longestRun, monthlyAverages,
-  monthRange, tagInsights, weekdayAverages, yearRange, yearsWithData, type Range
+  monthRange, narrative, tagInsights, weekdayAverages, yearRange, yearsWithData, type Range
 } from '../lib/stats'
 import { data, go, levelsById, sheetDay, tagsById, today } from '../state'
 import { IconLeft, IconRight, IconSearch } from './icons'
@@ -65,6 +65,7 @@ export function Stats() {
       ) : (
         <>
           <Hero d={d} avg={avg!} count={list.length} />
+          <Story lines={narrative(d, list, period === 'year' ? ym.y : null)} />
           <Distribution d={d} list={list} />
           {period !== 'month' && <ByMonth d={d} year={period === 'year' ? ym.y : null} />}
           <ByWeekday d={d} list={list} />
@@ -87,6 +88,11 @@ function Hero({ d, avg, count }: { d: Data; avg: number; count: number }) {
       <div class="hero-meta">{count} {plural(count, 'день', 'дня', 'дней')} в цвете · {fmt(avg * (d.levels.length - 1) + 1)} из {d.levels.length}</div>
     </div>
   )
+}
+
+function Story({ lines }: { lines: string[] }) {
+  if (!lines.length) return null
+  return <p class="story">{lines.join(' ')}</p>
 }
 
 function Distribution({ d, list }: { d: Data; list: ReturnType<typeof entriesIn> }) {

@@ -1081,3 +1081,5 @@ button.ygrid-m:active { background: var(--line); }
   .cal { max-width: 600px; }
   .ygrid, .wgrid { max-width: 640px; }
 }
+
+.story { font-family: var(--serif); font-size: 21px; line-height: 1.4; color: var(--ink); margin: 6px 0 22px; text-wrap: pretty; }

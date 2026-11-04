@@ -5,7 +5,7 @@ import { defaultData, levelAtScore, makeLevels, recolor, removeLevel, scoreOf, t
 import { backupDue, exportCsv, load, merge, sanitize, save, type Store } from '../src/lib/storage'
 import {
   average, currentStreak, distribution, extremeMonths, isGood, longestRun, monthlyAverages,
-  tagInsights, weekdayAverages, yearRange, entriesIn, elapsedDays
+  tagInsights, weekdayAverages, yearRange, entriesIn, elapsedDays, narrative
 } from '../src/lib/stats'
 
 const withEntries = (pairs: [string, number, string[]?][]): Data => {
@@ -224,6 +224,12 @@ describe('статистика', () => {
     const t = tagInsights(d, all)
     expect(t[0].id).toBe('t1')
     expect(t[0].delta!).toBeGreaterThan(0)
+  })
+  it('рассказ о периоде', () => {
+    const lines = narrative(d, all, 2026)
+    expect(lines[0]).toMatch(/^Чаще всего — «/)
+    expect(lines.join(' ')).toContain('Самый светлый месяц — январь, самый тяжёлый — февраль.')
+    expect(narrative(d, all.slice(0, 3), 2026)).toEqual([])
   })
   it('прошедшие дни', () => {
     expect(elapsedDays(yearRange(2026), '2026-01-10')).toBe(10)

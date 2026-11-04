@@ -139,3 +139,55 @@ export function yearsWithData(data: Data, today: DayKey = todayKey()): number[] 
   for (const k of Object.keys(data.entries)) ys.add(Number(k.slice(0, 4)))
   return [...ys].sort((a, b) => a - b)
 }
+
+const MONTHS_NOM = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь']
+const WEEKDAYS_ACC = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
+
+/**
+ * Несколько фраз о периоде простым языком — для начала «Итогов».
+ * year — если период ровно один год (тогда говорим о месяцах).
+ */
+export function narrative(data: Data, list: [DayKey, Entry][], year: number | null): string[] {
+  if (list.length < 5) return []
+  const out: string[] = []
+  const dist = distribution(data, list)
+  const top = dist.reduce((a, b) => (b.count > a.count ? b : a))
+  const topLevel = data.levels.find(l => l.id === top.id)!
+  out.push(`Чаще всего — «${topLevel.name.toLowerCase()}»: ${Math.round(top.share * 100)}% отмеченных дней.`)
+
+  const n = data.levels.length
+  if (n >= 3) {
+    const mid = (n - 1) / 2
+    let good = 0, bad = 0
+    for (const [, e] of list) {
+      const i = levelIndex(data, e.level)
+      if (i > mid) good++
+      else if (i < mid) bad++
+    }
+    const g = Math.round((good / list.length) * 100), b = Math.round((bad / list.length) * 100)
+    if (g + b > 0) out.push(`Светлых дней — ${g}%, тяжёлых — ${b}%.`)
+  }
+
+  if (year != null) {
+    const ex = extremeMonths(data, year)
+    if (ex.best != null && ex.worst != null) out.push(`Самый светлый месяц — ${MONTHS_NOM[ex.best]}, самый тяжёлый — ${MONTHS_NOM[ex.worst]}.`)
+    else if (ex.best != null) out.push(`Самый светлый месяц — ${MONTHS_NOM[ex.best]}.`)
+  }
+
+  const wd = weekdayAverages(data, list).map((x, i) => ({ ...x, i })).filter(x => x.avg != null && x.count >= 3)
+  if (wd.length >= 4) {
+    const best = wd.reduce((a, b) => (b.avg! > a.avg! ? b : a))
+    const worst = wd.reduce((a, b) => (b.avg! < a.avg! ? b : a))
+    if ((best.avg! - worst.avg!) * (n - 1) >= 0.3) out.push(`Легче всего проходит ${WEEKDAYS_ACC[best.i]}, тяжелее всего — ${WEEKDAYS_ACC[worst.i]}.`)
+  }
+
+  const tags = tagInsights(data, list).filter(t => t.count >= 3 && t.delta != null && Math.abs(t.delta * (n - 1)) >= 0.3)
+  const up = tags.filter(t => t.delta! > 0).sort((a, b) => b.delta! - a.delta!)[0]
+  const down = tags.filter(t => t.delta! < 0).sort((a, b) => a.delta! - b.delta!)[0]
+  const name = (id: string) => data.tags.find(t => t.id === id)?.name ?? ''
+  if (up && down) out.push(`Дни с меткой «${name(up.id)}» обычно светлее, а с «${name(down.id)}» — тяжелее.`)
+  else if (up) out.push(`Дни с меткой «${name(up.id)}» обычно светлее остальных.`)
+  else if (down) out.push(`Дни с меткой «${name(down.id)}» обычно тяжелее остальных.`)
+
+  return out
+}
