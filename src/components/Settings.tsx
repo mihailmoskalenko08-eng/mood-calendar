@@ -94,7 +94,7 @@ function ScaleEditor() {
           <li key={l.id} class="level-item">
             <div class="level-main">
               <button class="level-swatch" style={{ background: l.color, color: inkOn(l.color) }}
-                aria-label={`Цвет уровня «${l.name}»`} aria-expanded={editing === l.id}
+                aria-label={`${levels.length - i} — цвет уровня «${l.name}»`} aria-expanded={editing === l.id}
                 onClick={() => setEditing(editing === l.id ? null : l.id)}>
                 {levels.length - i}
               </button>

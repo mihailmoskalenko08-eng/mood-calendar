@@ -94,11 +94,11 @@ export function Today() {
           const future = compareKeys(k, now) > 0
           return (
             <button key={k} class={`week-day${k === day ? ' is-focus' : ''}${k === now ? ' is-today' : ''}`}
-              disabled={future} onClick={() => { focusDay.value = k }}
-              aria-label={`${capitalize(WEEKDAYS[weekdayMon(k)])}, ${humanDate(k, now)}${l ? `: ${l.name}` : ''}`}>
-              <span class="week-label">{WEEKDAYS_SHORT[weekdayMon(k)]}</span>
+              disabled={future} onClick={() => { focusDay.value = k }}>
+              <span class="visually-hidden">{`${capitalize(WEEKDAYS[weekdayMon(k)])}, ${humanDate(k, now)}${l ? `: ${l.name}` : ''}`}</span>
+              <span class="week-label" aria-hidden="true">{WEEKDAYS_SHORT[weekdayMon(k)]}</span>
               <span class={`week-cell${l ? ' is-set' : ''}`} style={l ? { background: l.color } : undefined} />
-              <span class="week-num">{parseKey(k).getDate()}</span>
+              <span class="week-num" aria-hidden="true">{parseKey(k).getDate()}</span>
             </button>
           )
         })}

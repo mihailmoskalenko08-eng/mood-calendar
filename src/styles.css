@@ -8,7 +8,7 @@
   --raised: #FFFFFF;
   --ink: #1A1814;
   --ink-2: #4A463E;
-  --muted: #8A8478;
+  --muted: #6E695F;
   --line: rgba(26, 24, 20, 0.1);
   --line-strong: rgba(26, 24, 20, 0.2);
   --empty: #E3DED3;
@@ -41,7 +41,7 @@
   --raised: #22201D;
   --ink: #EEE9DF;
   --ink-2: #C3BDB1;
-  --muted: #847E73;
+  --muted: #948E82;
   --line: rgba(238, 233, 223, 0.09);
   --line-strong: rgba(238, 233, 223, 0.18);
   --empty: #282623;
@@ -60,7 +60,7 @@
     --raised: #22201D;
     --ink: #EEE9DF;
     --ink-2: #C3BDB1;
-    --muted: #847E73;
+    --muted: #948E82;
     --line: rgba(238, 233, 223, 0.09);
     --line-strong: rgba(238, 233, 223, 0.18);
     --empty: #282623;
