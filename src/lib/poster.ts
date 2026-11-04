@@ -77,7 +77,7 @@ export async function renderPoster(data: Data, year: number, theme: PosterTheme)
     roundRect(ctx, x, y - 26, 30, 30, 8)
     ctx.fill()
     ctx.fillStyle = theme.ink
-    ctx.fillText(l.name, x + 50, y)
+    ctx.fillText(l.name, x + 50, y, 400)
   })
 
   ctx.fillStyle = theme.muted
@@ -152,10 +152,11 @@ export async function renderMonthPoster(data: Data, y: number, m: number, theme:
     ctx.fillStyle = l.color
     roundRect(ctx, x, yy - 28, 32, 32, 9)
     ctx.fill()
+    const nameW = Math.min(ctx.measureText(l.name).width, 330)
     ctx.fillStyle = theme.ink
-    ctx.fillText(l.name, x + 52, yy)
+    ctx.fillText(l.name, x + 52, yy, 330)
     ctx.fillStyle = theme.muted
-    ctx.fillText(String(counts.get(l.id)), x + 52 + ctx.measureText(l.name).width + 16, yy)
+    ctx.fillText(String(counts.get(l.id)), x + 52 + nameW + 16, yy)
   })
   const total = [...counts.values()].reduce((a, b) => a + b, 0)
   ctx.fillStyle = theme.muted

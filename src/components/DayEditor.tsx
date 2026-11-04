@@ -21,11 +21,12 @@ export function ScalePicker({ day, compact = false }: { day: DayKey; compact?: b
     if (id === current) return
     const level = d.levels.find(l => l.id === id)!
     const wasMarked = !!current
+    const before = currentStreak(data.value, today.value)
     const undo = mark(day, id)
     setBurst(id)
     setTimeout(() => setBurst(b => (b === id ? null : b)), 700)
     const streak = wasMarked ? 0 : currentStreak(data.value, today.value)
-    if (MILESTONES.includes(streak)) {
+    if (streak > before && MILESTONES.includes(streak)) {
       confetti(data.value.levels.map(l => l.color))
       showToast(`${streak} ${plural(streak, 'день', 'дня', 'дней')} подряд — так держать`, { label: 'Отменить', run: undo }, 5000)
     } else {

@@ -4,18 +4,33 @@ import { signal } from '@preact/signals'
 import { useEffect, useState } from 'preact/hooks'
 import { haptic } from '../lib/haptic'
 import { checkPin, clearLock, readLock } from '../lib/lock'
+import { sheetDay } from '../state'
 import { ConfirmButton } from './ui'
 
 /** Приложение закрыто кодом. */
 export const locked = signal(typeof localStorage !== 'undefined' && !!readLock())
+/** Шторка на время, пока приложение свёрнуто: снимок в переключателе приложений не покажет дневник. */
+export const shielded = signal(false)
 /** Сколько можно отсутствовать, прежде чем код спросят снова. */
 const GRACE_MS = 30_000
+
+export function lockNow() {
+  locked.value = true
+  sheetDay.value = null
+  ;(document.activeElement as HTMLElement | null)?.blur?.()
+}
 
 if (typeof document !== 'undefined') {
   let hiddenAt = 0
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') hiddenAt = Date.now()
-    else if (readLock() && hiddenAt && Date.now() - hiddenAt > GRACE_MS) locked.value = true
+    if (!readLock()) { shielded.value = false; return }
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now()
+      shielded.value = true
+    } else {
+      if (hiddenAt && Date.now() - hiddenAt > GRACE_MS) lockNow()
+      shielded.value = false
+    }
   })
 }
 
@@ -24,7 +39,9 @@ export const PIN_LENGTH = 4
 export function Keypad({ onDigit, onBack, disabled }: { onDigit: (d: string) => void; onBack: () => void; disabled?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (disabled) return
+      if (disabled || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return
+      const t = e.target as HTMLElement | null
+      if (t?.closest?.('input, textarea, [contenteditable]')) return
       if (/^\d$/.test(e.key)) onDigit(e.key)
       else if (e.key === 'Backspace') onBack()
     }
@@ -68,11 +85,12 @@ export function LockScreen() {
       haptic()
       setError(true)
       setTimeout(() => { setError(false); setPin('') }, 520)
-    })
+    }).catch(() => { setBusy(false); setPin('') })
   }, [pin])
 
   return (
     <div class="lock" role="dialog" aria-modal="true" aria-label="Введите код">
+      <div class="lock-inner">
       <p class="display lock-title">Оттенки</p>
       <p class="lock-sub">{error ? 'Неверный код' : 'Введите код'}</p>
       <PinDots value={pin} error={error} />
@@ -90,6 +108,16 @@ export function LockScreen() {
           </ConfirmButton>
         </div>
       )}
+      </div>
+    </div>
+  )
+}
+
+/** Непрозрачная шторка, пока приложение в фоне. */
+export function Shield() {
+  return (
+    <div class="lock lock--shield" aria-hidden="true">
+      <p class="display lock-title">Оттенки</p>
     </div>
   )
 }

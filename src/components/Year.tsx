@@ -127,6 +127,17 @@ function WeeksGrid({ y, now }: { y: number; now: string }) {
   )
 }
 
+/** Высота зоны под статус-баром и «островом» — измеряем пробным элементом (env() в переменной не вычисляется). */
+let safeTopCache: number | null = null
+const safeTop = () => {
+  if (safeTopCache != null) return safeTopCache
+  const probe = document.createElement('div')
+  probe.style.cssText = 'position:fixed;top:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none'
+  document.body.append(probe)
+  safeTopCache = probe.offsetHeight
+  probe.remove()
+  return safeTopCache
+}
 const scrubbedRecently = () => Date.now() - gesture.scrubEnd < 400
 
 /**
@@ -208,7 +219,7 @@ function Scrub({ children, now }: { children: ComponentChildren; now: string }) 
     <div class="scrub" ref={box}>
       {children}
       {tip && (
-        <div class="scrub-tip" style={{ left: `${left}px`, top: `${Math.max(12, tip.y - 96)}px` }} aria-hidden="true">
+        <div class="scrub-tip" style={{ left: `${left}px`, top: tip.y - 96 < safeTop() + 8 ? `${tip.y + 44}px` : `${tip.y - 96}px` }} aria-hidden="true">
           <span class="scrub-swatch" style={{ background: l?.color ?? 'var(--empty)' }} />
           <span class="scrub-body">
             <b>{humanDate(tip.k, now)}</b>

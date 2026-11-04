@@ -1,6 +1,6 @@
 // Настройки: шкала, метки, вид, напоминание, данные, установка.
 
-import { useRef, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { inkOn, isHex, rampColors } from '../lib/color'
 import { plural } from '../lib/dates'
 import { MAX_LEVELS, MAX_TAGS, MIN_LEVELS, PALETTES, countByLevel } from '../lib/model'
@@ -14,7 +14,7 @@ import { defaultData } from '../lib/model'
 import { IconClose, IconDown, IconPlus, IconShare, IconTrash, IconUp } from './icons'
 import { ConfirmButton, Segmented, Switch } from './ui'
 import { Keypad, PIN_LENGTH, PinDots } from './Lock'
-import { checkPin, clearLock, lockAvailable, readLock, setPin } from '../lib/lock'
+import { checkPin, clearLock, hasLock, lockAvailable, setPin } from '../lib/lock'
 
 export const SWATCHES = [
   '#E3263A', '#F0544F', '#FF7A3D', '#FFA62B', '#FFC53D', '#F3E37C', '#C6E85A', '#8FD14F',
@@ -321,35 +321,53 @@ function About() {
 type PinStep = 'idle' | 'new' | 'repeat' | 'current'
 
 function PinSection() {
-  const [has, setHas] = useState(() => !!readLock())
+  const has = hasLock.value
   const [step, setStep] = useState<PinStep>('idle')
   const [pin, setPinValue] = useState('')
   const [first, setFirst] = useState('')
   const [error, setError] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [after, setAfter] = useState<'change' | 'remove'>('change')
+  const attempt = useRef(0)
+
+  const reset = () => { attempt.current++; setStep('idle'); setPinValue(''); setFirst(''); setError(false); setBusy(false) }
+
+  // Набранные 4 цифры обрабатываются здесь, а не в обработчике нажатия, — без гонок с медленным хешированием.
+  useEffect(() => {
+    if (pin.length < PIN_LENGTH || step === 'idle') return
+    const id = ++attempt.current
+    const live = () => id === attempt.current
+    if (step === 'new') { setFirst(pin); setPinValue(''); setStep('repeat'); return }
+    if (step === 'repeat') {
+      if (pin !== first) {
+        showToast('Коды не совпали — попробуйте ещё раз')
+        setFirst(''); setPinValue(''); setStep('new')
+        return
+      }
+      setBusy(true)
+      setPin(pin).then(() => {
+        if (!live()) return
+        reset()
+        showToast('Код установлен. Его спросят при запуске и после 30 секунд вне приложения')
+      }).catch(() => { if (live()) { setBusy(false); showToast('Не удалось сохранить код') } })
+      return
+    }
+    // step === 'current'
+    setBusy(true)
+    checkPin(pin).then(ok => {
+      if (!live()) return
+      setBusy(false)
+      if (!ok) {
+        setError(true)
+        setTimeout(() => { if (live()) { setError(false); setPinValue('') } }, 520)
+        return
+      }
+      if (after === 'remove') { clearLock(); reset(); showToast('Код снят') }
+      else { setPinValue(''); setStep('new') }
+    }).catch(() => { if (live()) { setBusy(false); setPinValue('') } })
+  }, [pin, step])
 
   if (!lockAvailable()) return null
-
-  const reset = () => { setStep('idle'); setPinValue(''); setFirst(''); setError(false) }
-  const fail = () => { setError(true); setTimeout(() => { setError(false); setPinValue('') }, 520) }
-
-  const onDigit = async (dgt: string) => {
-    const next = pin.length < PIN_LENGTH ? pin + dgt : pin
-    setPinValue(next)
-    if (next.length < PIN_LENGTH) return
-    if (step === 'new') { setFirst(next); setPinValue(''); setStep('repeat') }
-    else if (step === 'repeat') {
-      if (next !== first) { showToast('Коды не совпали — попробуйте ещё раз'); setFirst(''); setPinValue(''); setStep('new'); return }
-      await setPin(next)
-      setHas(true)
-      reset()
-      showToast('Код установлен. Его спросят при запуске и после 30 секунд вне приложения')
-    } else if (step === 'current') {
-      if (!(await checkPin(next))) return fail()
-      if (after === 'remove') { clearLock(); setHas(false); reset(); showToast('Код снят') }
-      else { setPinValue(''); setStep('new') }
-    }
-  }
 
   const prompt = step === 'new' ? 'Придумайте код из 4 цифр' : step === 'repeat' ? 'Повторите код' : 'Введите текущий код'
   return (
@@ -371,7 +389,9 @@ function PinSection() {
         <div class="pin-setup">
           <p class="pin-prompt">{error ? 'Неверный код' : prompt}</p>
           <PinDots value={pin} error={error} />
-          <Keypad onDigit={onDigit} onBack={() => setPinValue(p => p.slice(0, -1))} disabled={error} />
+          <Keypad disabled={error || busy}
+            onDigit={dgt => setPinValue(p => (p.length < PIN_LENGTH ? p + dgt : p))}
+            onBack={() => setPinValue(p => p.slice(0, -1))} />
           <button class="link-btn link-btn--muted" onClick={reset}>Отмена</button>
         </div>
       )}

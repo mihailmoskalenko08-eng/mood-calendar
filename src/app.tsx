@@ -9,7 +9,7 @@ import {
 import { ClearDay, NoteField, ScalePicker, TagPicker } from './components/DayEditor'
 import { IconMonth, IconMore, IconStats, IconToday, IconYear } from './components/icons'
 import { Month } from './components/Month'
-import { LockScreen, locked } from './components/Lock'
+import { LockScreen, locked, Shield, shielded } from './components/Lock'
 import { Onboarding } from './components/Onboarding'
 import { Settings } from './components/Settings'
 import { Stats } from './components/Stats'
@@ -63,7 +63,8 @@ export function App() {
 
   return (
     <>
-      <main class="app" id="main" {...(locked.value ? { inert: true, 'aria-hidden': 'true' } : {})}>
+      {!locked.value && <>
+      <main class="app" id="main">
         <StorageBanners />
         {current === 'today' && <Today />}
         {current === 'month' && <Month />}
@@ -72,7 +73,7 @@ export function App() {
         {current === 'settings' && <Settings />}
       </main>
 
-      <nav class="tabbar" aria-label="Разделы" {...(locked.value ? { inert: true, 'aria-hidden': 'true' } : {})}>
+      <nav class="tabbar" aria-label="Разделы">
         {TABS.map(({ id, label, Icon }) => (
           <button key={id} class={`tabbar-btn${current === id ? ' is-on' : ''}`} aria-current={current === id ? 'page' : undefined}
             onClick={() => go(id)}>
@@ -83,9 +84,11 @@ export function App() {
       </nav>
 
       <DaySheet />
+      </>}
       <ToastHost />
       {!d.onboarded && !corruptStored.value && !locked.value && <Onboarding />}
       {locked.value && <LockScreen />}
+      {shielded.value && !locked.value && <Shield />}
     </>
   )
 }

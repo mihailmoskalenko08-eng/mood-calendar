@@ -258,6 +258,28 @@ async function step(name, fn) {
     assert.equal(await page.locator('.lock').count(), 0)
   })
 
+  await step('под экраном кода дневник не отрисован, цифры из полей ввода не попадают в код', async () => {
+    await page.click('.tabbar-btn:has-text("Ещё")')
+    await page.click('text=Задать код')
+    await page.fill('.add-tag input', 'Бег 2024')
+    await page.locator('.add-tag input').press('2')
+    assert.equal(await page.textContent('.pin-prompt'), 'Придумайте код из 4 цифр')
+    await page.locator('.add-tag input').fill('')
+    for (const k of '4321') await page.click(`.pin-setup .key[aria-label="${k}"]`)
+    for (const k of '4321') await page.click(`.pin-setup .key[aria-label="${k}"]`)
+    await page.waitForSelector('text=Код установлен', { timeout: 5000 })
+    await page.reload()
+    await page.waitForSelector('.lock')
+    assert.equal(await page.locator('.app').count(), 0, 'дневник не должен быть в DOM под блокировкой')
+    assert.equal(await page.locator('.tabbar').count(), 0)
+    for (const k of '4321') await page.click(`.lock .key[aria-label="${k}"]`)
+    await page.waitForSelector('.lock', { state: 'detached', timeout: 5000 })
+    await page.click('.tabbar-btn:has-text("Ещё")')
+    await page.click('text=Снять код')
+    for (const k of '4321') await page.click(`.pin-setup .key[aria-label="${k}"]`)
+    await page.waitForSelector('text=Код снят', { timeout: 5000 })
+  })
+
   await step('без ошибок в консоли', async () => {
     assert.deepEqual(errors, [])
   })

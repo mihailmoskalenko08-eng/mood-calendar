@@ -218,7 +218,8 @@ export function merge(current: Data, incoming: Data): Data {
 }
 
 export function exportJson(data: Data): string {
-  return JSON.stringify({ app: 'ottenki', exportedAt: new Date().toISOString(), ...data }, null, 2)
+  // В файл сразу пишем время этой копии: после восстановления из неё напоминание не появится зря.
+  return JSON.stringify({ app: 'ottenki', exportedAt: new Date().toISOString(), ...data, lastBackup: Date.now() }, null, 2)
 }
 
 function csvCell(s: string): string {

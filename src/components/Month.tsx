@@ -128,7 +128,9 @@ export function Month() {
     const name = MONTHS_PREP[p.getMonth()]
     if (Math.abs(delta) < 0.2) return <p class="compare">По настроению — примерно как в {name}.</p>
     const amount = Math.abs(delta)
-    const words = amount < 0.75 ? 'на полшага' : amount < 1.25 ? 'на целый шаг' : `на ${fmt(amount)} шага`
+    const rounded = Math.round(amount * 10) / 10
+    const words = amount < 0.75 ? 'на полшага' : amount < 1.25 ? 'на целый шаг'
+      : Number.isInteger(rounded) ? `на ${rounded} ${plural(rounded, 'шаг', 'шага', 'шагов')}` : `на ${fmt(amount)} шага`
     return (
       <p class="compare">
         {delta > 0 ? 'Светлее' : 'Тяжелее'}, чем в {name}: в среднем <span class="nb">{words}</span> {delta > 0 ? 'выше' : 'ниже'} по шкале.

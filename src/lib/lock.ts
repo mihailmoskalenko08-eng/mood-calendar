@@ -1,6 +1,8 @@
 // Код-пароль. Хранится отдельно от данных (в копии не попадает): соль и PBKDF2-хеш четырёх цифр.
 // Это защита от случайного взгляда на открытый телефон, а не шифрование: сами отметки лежат как есть.
 
+import { signal } from '@preact/signals'
+
 const KEY = 'ottenki:lock:v1'
 const ITERATIONS = 150_000
 
@@ -34,10 +36,14 @@ export function readLock(): LockRecord | null {
   }
 }
 
+/** Задан ли код — общее состояние для экрана блокировки и настроек. */
+export const hasLock = signal(typeof localStorage !== 'undefined' && !!readLock())
+
 export async function setPin(pin: string): Promise<void> {
   const salt = toHex(crypto.getRandomValues(new Uint8Array(16)).buffer)
   const hash = await hashPin(pin, salt)
   localStorage.setItem(KEY, JSON.stringify({ salt, hash }))
+  hasLock.value = true
 }
 
 export async function checkPin(pin: string): Promise<boolean> {
@@ -48,4 +54,5 @@ export async function checkPin(pin: string): Promise<boolean> {
 
 export function clearLock() {
   try { localStorage.removeItem(KEY) } catch { /* */ }
+  hasLock.value = false
 }
