@@ -9,11 +9,24 @@ import '@fontsource/cormorant-garamond/latin-600.css'
 import './styles.css'
 
 async function start() {
-  // В приложении на iPhone сначала поднимаем данные из системного хранилища, потом — всё остальное
-  if (__NATIVE__) await (await import('./native')).prepareNative()
+  const root = document.getElementById('root')!
+  if (__NATIVE__) {
+    // В приложении на iPhone: если дневник зашифрован — сначала вход (Face ID или код), потом данные
+    const secure = await import('./native-secure')
+    const encrypted = await secure.isEncrypted().catch(() => false)
+    await (await import('./native')).prepareNative(encrypted)
+    if (encrypted) {
+      const face = (await secure.faceIdEnabled()) && (await secure.biometry()).available
+      const { BootLock } = await import('./components/BootLock')
+      await new Promise<void>(resolve => render(<BootLock secure={secure} face={face} onOpen={resolve} />, root))
+      ;(window as Window & { __ottenkiUnlocked?: boolean }).__ottenkiUnlocked = true
+      render(null, root)
+    }
+  }
   const { App } = await import('./app')
-  render(<App />, document.getElementById('root')!)
-  if (!__NATIVE__) registerServiceWorker()
+  render(<App />, root)
+  if (__NATIVE__) (await import('./native')).startReminders()
+  else registerServiceWorker()
 }
 start()
 

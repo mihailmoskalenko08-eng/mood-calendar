@@ -34,6 +34,8 @@ function applyTheme(theme: string) {
   const color = dark ? '#121110' : '#F2EEE6'
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', color))
   if (__NATIVE__) import('./native').then(m => m.setStatusBar(dark)).catch(() => {})
+  // Тема отдельно от данных — чтобы экран входа в зашифрованный дневник сразу был нужного цвета
+  try { localStorage.setItem('ottenki:theme', theme) } catch { /* */ }
 }
 
 // App подписан только на тему и знакомство — правка заметки не перерисовывает всё приложение.

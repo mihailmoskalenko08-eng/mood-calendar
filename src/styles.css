@@ -1115,3 +1115,7 @@ button.ygrid-m:active { background: var(--line); }
 /* Выбранный вариант переключателя заметнее в тёмной теме */
 :root[data-theme='dark'] .segmented-thumb { background: #3A3631; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .segmented-thumb { background: #3A3631; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); } }
+.lock-face { margin-top: 22px; }
+
+.field--row { flex-direction: row; align-items: center; justify-content: space-between; margin: 4px 0 8px; }
+.time-input { font: 500 20px var(--sans); font-variant-numeric: tabular-nums; border: 0; border-radius: 10px; padding: 6px 12px; background: var(--bg); color: var(--ink); }

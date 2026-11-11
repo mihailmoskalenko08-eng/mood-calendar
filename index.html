@@ -35,7 +35,7 @@
     // Тема до отрисовки — без вспышки светлого экрана ночью
     try {
       var d = JSON.parse(localStorage.getItem('ottenki:data:v1') || 'null')
-      var t = d && d.settings && d.settings.theme
+      var t = (d && d.settings && d.settings.theme) || localStorage.getItem('ottenki:theme')
       if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t)
     } catch (e) {}
     // Строка состояния iPhone: на тёмном фоне — прозрачная со светлым текстом, на светлом — обычная с тёмным

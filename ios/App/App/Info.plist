@@ -51,6 +51,8 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID открывает ваш дневник вместо кода.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

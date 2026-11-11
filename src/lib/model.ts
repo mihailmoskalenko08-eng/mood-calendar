@@ -33,6 +33,8 @@ export interface Settings {
   showDetails: boolean
   /** вид года: сетка «месяцы × дни» или «недели» */
   yearLayout: 'months' | 'weeks'
+  /** напоминание по вечерам (только приложение для iPhone) */
+  reminder: { on: boolean; time: string }
 }
 
 export interface Data {
@@ -111,7 +113,7 @@ export function defaultData(now = Date.now()): Data {
     levels: makeLevels(7),
     tags: DEFAULT_TAGS.map((name, i) => ({ id: `t${i + 1}`, name })),
     entries: {},
-    settings: { theme: 'system', weekStart: 0, showDetails: true, yearLayout: 'months' },
+    settings: { theme: 'system', weekStart: 0, showDetails: true, yearLayout: 'months', reminder: { on: false, time: '21:30' } },
     palette: 'spectrum',
     onboarded: false,
     createdAt: now

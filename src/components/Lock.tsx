@@ -4,12 +4,13 @@ import { signal } from '@preact/signals'
 import { useEffect, useState } from 'preact/hooks'
 import { haptic } from '../lib/haptic'
 import { cancelReset, checkPin, clearLock, readLock, requestReset, resetAt } from '../lib/lock'
-import { restoreSession, sheetDay } from '../state'
+import { data, flushSave, restoreSession, sheetDay } from '../state'
 import { ConfirmButton } from './ui'
 
 /** Приложение закрыто кодом. */
 const resumedAt = typeof window !== 'undefined' ? restoreSession() : null
-export const locked = signal(typeof localStorage !== 'undefined' && !!readLock() && !(resumedAt && Date.now() - resumedAt < 30_000))
+const unlockedAtBoot = typeof window !== 'undefined' && (window as Window & { __ottenkiUnlocked?: boolean }).__ottenkiUnlocked === true
+export const locked = signal(typeof localStorage !== 'undefined' && !!readLock() && !unlockedAtBoot && !(resumedAt && Date.now() - resumedAt < 30_000))
 /** Шторка на время, пока приложение свёрнуто: снимок в переключателе приложений не покажет дневник. */
 export const shielded = signal(false)
 /** Сколько можно отсутствовать, прежде чем код спросят снова. */
@@ -35,47 +36,33 @@ if (typeof document !== 'undefined') {
   })
 }
 
-export const PIN_LENGTH = 4
-
-export function Keypad({ onDigit, onBack, disabled }: { onDigit: (d: string) => void; onBack: () => void; disabled?: boolean }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (disabled || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return
-      const t = e.target as HTMLElement | null
-      if (t?.closest?.('input, textarea, [contenteditable]')) return
-      if (/^\d$/.test(e.key)) onDigit(e.key)
-      else if (e.key === 'Backspace') onBack()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onDigit, onBack, disabled])
-  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']
-  return (
-    <div class="keypad">
-      {keys.map((k, i) => k === '' ? <span key={i} /> : (
-        <button key={i} class={`key${k === '⌫' ? ' key--back' : ''}`} disabled={disabled}
-          aria-label={k === '⌫' ? 'Стереть' : k}
-          onClick={() => { haptic(); k === '⌫' ? onBack() : onDigit(k) }}>
-          {k}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-export function PinDots({ value, error }: { value: string; error?: boolean }) {
-  return (
-    <div class={`pin-dots${error ? ' is-error' : ''}`} aria-label={`Введено ${value.length} из ${PIN_LENGTH}`} role="status">
-      {Array.from({ length: PIN_LENGTH }, (_, i) => <i key={i} class={i < value.length ? 'is-on' : ''} />)}
-    </div>
-  )
-}
+export { Keypad, PIN_LENGTH, PinDots } from './Keypad'
+import { Keypad, PIN_LENGTH, PinDots } from './Keypad'
 
 export function LockScreen() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
   const [help, setHelp] = useState(false)
+  const [face, setFace] = useState(false)
+
+  // В приложении для iPhone — вход по Face ID, если он включён
+  const tryFace = async () => {
+    try {
+      const s = await import('../native-secure')
+      await s.verifyFace()
+      cancelReset()
+      locked.value = false
+    } catch { /* отмена — остаётся код */ }
+  }
+  useEffect(() => {
+    if (!__NATIVE__) return
+    import('../native-secure').then(async s => {
+      const on = (await s.faceIdEnabled()) && (await s.biometry()).available
+      setFace(on)
+      if (on) tryFace()
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (pin.length < PIN_LENGTH) return
@@ -98,6 +85,7 @@ export function LockScreen() {
       <Keypad disabled={busy || error}
         onDigit={d => setPin(p => (p.length < PIN_LENGTH ? p + d : p))}
         onBack={() => setPin(p => p.slice(0, -1))} />
+      {face && <button class="pill-btn ghost lock-face" onClick={tryFace}>Войти по Face ID</button>}
       {!help && !resetAt() ? (
         <button class="link-btn link-btn--muted lock-help" onClick={() => setHelp(true)}>Забыли код?</button>
       ) : <ForgotPin />}
@@ -143,7 +131,15 @@ function ForgotPin() {
         <>
           <p>Ожидание прошло.</p>
           <ConfirmButton class="pill-btn ghost" confirm="Нажмите ещё раз, чтобы снять код"
-            onConfirm={() => { clearLock(); locked.value = false }}>
+            onConfirm={async () => {
+              if (__NATIVE__) {
+                // Данные сейчас открыты в памяти — сохраняем их уже без шифрования
+                flushSave()
+                const s = await import('../native-secure')
+                if (await s.isEncrypted()) await s.disableEncryption(JSON.stringify(data.value))
+              }
+              clearLock(); locked.value = false
+            }}>
             Снять код
           </ConfirmButton>
         </>

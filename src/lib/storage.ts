@@ -77,7 +77,8 @@ export function sanitize(raw: unknown): Data {
     theme: s.theme === 'light' || s.theme === 'dark' || s.theme === 'system' ? s.theme : base.settings.theme,
     weekStart: s.weekStart === 6 ? 6 : 0,
     showDetails: typeof s.showDetails === 'boolean' ? s.showDetails : base.settings.showDetails,
-    yearLayout: s.yearLayout === 'weeks' ? 'weeks' : 'months'
+    yearLayout: s.yearLayout === 'weeks' ? 'weeks' : 'months',
+    reminder: sanitizeReminder(s.reminder)
   }
 
   const palette = typeof r.palette === 'string' && (PALETTES.some(p => p.id === r.palette) || r.palette === 'custom')
@@ -103,7 +104,25 @@ export interface Store {
   removeItem?(k: string): void
 }
 
+/** Подменённое хранилище: в приложении с кодом данные живут в памяти и пишутся на диск зашифрованными. */
+let override: Store | null = null
+export function useStore(store: Store | null) {
+  override = store
+  lastSaved = ''
+}
+
+/** Хранилище в памяти: читается мгновенно, а каждое изменение отдаётся наружу (например, на шифрование). */
+export function memoryStore(initial: Record<string, string>, onChange: (key: string, value: string) => void): Store {
+  const m = new Map(Object.entries(initial))
+  return {
+    getItem: k => m.get(k) ?? null,
+    setItem: (k, v) => { m.set(k, v); onChange(k, v) },
+    removeItem: k => { m.delete(k) }
+  }
+}
+
 function safeStore(): Store | null {
+  if (override) return override
   try {
     const s = globalThis.localStorage
     const probe = '__ottenki_probe'
@@ -124,6 +143,12 @@ export interface Loaded {
 }
 
 export const CORRUPT_PREFIX = 'ottenki:data:broken:'
+
+function sanitizeReminder(v: unknown): Settings['reminder'] {
+  const r = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
+  const time = typeof r.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.time) ? r.time : '21:30'
+  return { on: r.on === true, time }
+}
 
 export function load(store: Store | null = safeStore()): Loaded {
   if (!store) return { data: defaultData(), recovered: false, available: false, corrupt: false }

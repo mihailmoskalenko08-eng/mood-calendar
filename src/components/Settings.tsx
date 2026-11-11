@@ -8,7 +8,7 @@ import type { Data } from '../lib/model'
 import { readBackup, saveBackup } from '../backup'
 import {
   addLevel, addTag, applyPalette, data, deleteLevel, deleteTag, mergeIn, moveLevel, renameLevel,
-  renameTag, replaceAll, resetScale, setLevelColor, setSetting, showToast
+  flushSave, renameTag, replaceAll, resetScale, setLevelColor, setSetting, showToast
 } from '../state'
 import { defaultData } from '../lib/model'
 import { IconClose, IconDown, IconPlus, IconShare, IconTrash, IconUp } from './icons'
@@ -36,7 +36,7 @@ export function Settings() {
       <ScaleEditor />
       <TagsEditor />
       <Look />
-      <Reminder />
+      {__NATIVE__ ? <NativeReminder /> : <Reminder />}
       <PinSection />
       <DataSection />
       <About />
@@ -369,10 +369,18 @@ function PinSection() {
         return
       }
       setBusy(true)
-      setPin(pin).then(() => {
+      const wasSet = hasLock.value
+      setPin(pin).then(async () => {
+        if (__NATIVE__) {
+          const secure = await import('../native-secure')
+          if (wasSet && (await secure.isEncrypted())) await secure.rewrapKey(pin)
+          else { flushSave(); await secure.enableEncryption(pin, JSON.stringify(data.value)) }
+        }
         if (!live()) return
         reset()
-        showToast('Код установлен. Его спросят при запуске и после 30 секунд вне приложения')
+        showToast(__NATIVE__
+          ? 'Код установлен, отметки зашифрованы. Код спросят при запуске и после 30 секунд вне приложения'
+          : 'Код установлен. Его спросят при запуске и после 30 секунд вне приложения')
       }).catch(() => { if (live()) { setBusy(false); showToast('Не удалось сохранить код') } })
       return
     }
@@ -386,7 +394,16 @@ function PinSection() {
         setTimeout(() => { if (live()) { setError(false); setPinValue('') } }, 520)
         return
       }
-      if (after === 'remove') { clearLock(); reset(); showToast('Код снят') }
+      if (after === 'remove') {
+        if (__NATIVE__) {
+          import('../native-secure').then(async s => {
+            await s.disableEncryption(JSON.stringify(data.value))
+            clearLock(); reset(); showToast('Код снят, отметки больше не зашифрованы')
+          }).catch(() => { setBusy(false); showToast('Не удалось снять код') })
+          return
+        }
+        clearLock(); reset(); showToast('Код снят')
+      }
       else { setPinValue(''); setStep('new') }
     }).catch(() => { if (live()) { setBusy(false); setPinValue('') } })
   }, [pin, step])
@@ -397,7 +414,11 @@ function PinSection() {
   return (
     <div class="card">
       <h2 class="card-title">Код-пароль</h2>
-      <p class="muted card-sub">Закрывает дневник от случайного взгляда, если кто-то возьмёт телефон. Забытый код можно снять с экрана блокировки после 10 минут ожидания. Отметки им не шифруются.</p>
+      {__NATIVE__ ? (
+        <p class="muted card-sub">Спрашивается при запуске и после 30 секунд вне приложения. Отметки шифруются: без кода (или Face ID) их не прочитать даже из памяти телефона. Забытый код не восстановить — держите свежую копию в «Данных».</p>
+      ) : (
+        <p class="muted card-sub">Закрывает дневник от случайного взгляда, если кто-то возьмёт телефон. Забытый код можно снять с экрана блокировки после 10 минут ожидания. Отметки им не шифруются.</p>
+      )}
       {step === 'idle' ? (
         <div class="row-actions">
           {has ? (
@@ -409,6 +430,10 @@ function PinSection() {
             <button class="pill-btn" onClick={() => setStep('new')}>Задать код</button>
           )}
         </div>
+      ) : null}
+      {step === 'idle' && __NATIVE__ && has && <FaceToggle />}
+      {step === 'idle' ? (
+        null
       ) : (
         <div class="pin-setup">
           <p class="pin-prompt">{error ? 'Неверный код' : prompt}</p>
@@ -419,6 +444,62 @@ function PinSection() {
           <button class="link-btn link-btn--muted" onClick={reset}>Отмена</button>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Вход по Face ID (приложение для iPhone, когда задан код). */
+function FaceToggle() {
+  const [state, setState] = useState<{ available: boolean; on: boolean } | null>(null)
+  useEffect(() => {
+    import('../native-secure').then(async s => {
+      const b = await s.biometry()
+      setState({ available: b.available, on: await s.faceIdEnabled() })
+    }).catch(() => setState({ available: false, on: false }))
+  }, [])
+  if (!state?.available) return null
+  return (
+    <Switch label="Входить по Face ID" checked={state.on} onChange={async v => {
+      const s = await import('../native-secure')
+      try {
+        if (v) { await s.enableFace(); showToast('Face ID включён') }
+        else { await s.disableFace(); showToast('Face ID выключен') }
+        setState({ available: true, on: v })
+      } catch {
+        showToast('Face ID не подтвердился')
+        setState({ ...state })
+      }
+    }} />
+  )
+}
+
+/** Напоминание по вечерам — настоящее уведомление (приложение для iPhone). */
+function NativeReminder() {
+  const r = data.value.settings.reminder
+  const set = (next: Partial<typeof r>) => setSetting('reminder', { ...r, ...next })
+  return (
+    <div class="card">
+      <h2 class="card-title">Напоминание</h2>
+      <Switch label="Каждый вечер спрашивать, как прошёл день" checked={r.on} onChange={async v => {
+        if (v) {
+          const { reminderPermission } = await import('../native')
+          if (!(await reminderPermission(true))) {
+            showToast('Уведомления выключены для «Оттенков» — включите их в Настройках iPhone → Уведомления', undefined, 8000)
+            return
+          }
+        }
+        set({ on: v })
+      }} />
+      {r.on && (
+        <label class="field field--row">
+          <span class="field-label">Время</span>
+          <input class="time-input" type="time" value={r.time} onChange={e => {
+            const v = (e.target as HTMLInputElement).value
+            if (/^\d{2}:\d{2}$/.test(v)) set({ time: v })
+          }} />
+        </label>
+      )}
+      <p class="muted card-sub">Если день уже отмечен — напоминания не будет.</p>
     </div>
   )
 }
