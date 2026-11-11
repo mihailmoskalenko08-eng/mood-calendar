@@ -5,7 +5,7 @@
 require 'fileutils'
 require 'xcodeproj'
 
-root = File.expand_path('../..', __dir__) # ios/
+root = File.expand_path('..', __dir__) # ios/
 app_dir = File.join(root, 'App', 'App')
 widget_dir = File.join(root, 'App', 'OttenkiWidget')
 
