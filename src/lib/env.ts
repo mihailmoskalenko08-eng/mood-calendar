@@ -2,6 +2,7 @@
 
 /** Открыто с иконки на экране «Домой» (а не во вкладке браузера). */
 export function isStandalone(): boolean {
+  if (typeof __NATIVE__ !== 'undefined' && __NATIVE__) return true
   if (typeof window === 'undefined') return false
   return window.matchMedia?.('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true

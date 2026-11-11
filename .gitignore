@@ -3,3 +3,7 @@ dist
 *.log
 .DS_Store
 shots
+dist-native
+build
+Payload
+*.ipa

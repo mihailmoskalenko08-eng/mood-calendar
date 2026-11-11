@@ -4,13 +4,16 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { readFileSync } from 'node:fs'
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+// NATIVE=1 — сборка для приложения на iPhone (Capacitor): свои пути, без сервис-воркера.
+const native = process.env.NATIVE === '1'
 
 export default defineConfig({
-  base: '/mood-calendar/',
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  base: native ? '/' : '/mood-calendar/',
+  define: { __APP_VERSION__: JSON.stringify(pkg.version), __NATIVE__: JSON.stringify(native) },
   plugins: [
     preact(),
     VitePWA({
+      disable: native,
       registerType: 'prompt',
       injectRegister: false,
       includeAssets: ['icons/*.png', 'icons/*.svg'],

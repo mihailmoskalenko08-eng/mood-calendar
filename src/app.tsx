@@ -33,6 +33,7 @@ function applyTheme(theme: string) {
   const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
   const color = dark ? '#121110' : '#F2EEE6'
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', color))
+  if (__NATIVE__) import('./native').then(m => m.setStatusBar(dark)).catch(() => {})
 }
 
 // App подписан только на тему и знакомство — правка заметки не перерисовывает всё приложение.

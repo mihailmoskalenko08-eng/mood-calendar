@@ -22,6 +22,7 @@ function ensure(): HTMLLabelElement | null {
 }
 
 export function haptic() {
+  if (__NATIVE__) { import('../native').then(m => m.hapticNative()).catch(() => {}); return }
   try {
     if ('vibrate' in navigator && typeof navigator.vibrate === 'function' && !/iPhone|iPad/.test(navigator.userAgent)) {
       navigator.vibrate(8)

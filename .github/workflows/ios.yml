@@ -1,0 +1,61 @@
+name: Приложение для iPhone (.ipa)
+# Собирает приложение без подписи. Подписывает его SideStore на телефоне вашим Apple ID.
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'ios/**', 'public/**', 'index.html', 'package.json', 'package-lock.json', 'capacitor.config.ts', 'vite.config.ts', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ios
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Веб-часть для приложения
+        run: NATIVE=1 npm run build
+      - run: npx cap sync ios
+      - name: Сборка Xcode без подписи
+        run: |
+          xcodebuild -version
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            -quiet build
+      - name: Упаковка .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry Ottenki.ipa Payload
+          ls -la Ottenki.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ottenki-ipa
+          path: Ottenki.ipa
+      - name: Выложить в релиз «ios-latest»
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          NOTES="Сборка ${{ github.run_number }} (версия $VERSION), коммит ${GITHUB_SHA::7}. Откройте эту страницу на iPhone, скачайте Ottenki.ipa и откройте его в SideStore."
+          if gh release view ios-latest >/dev/null 2>&1; then
+            gh release upload ios-latest Ottenki.ipa --clobber
+            gh release edit ios-latest --notes "$NOTES"
+          else
+            gh release create ios-latest Ottenki.ipa --title "Оттенки для iPhone" --notes "$NOTES" --prerelease
+          fi

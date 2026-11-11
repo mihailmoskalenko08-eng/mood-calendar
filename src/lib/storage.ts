@@ -152,6 +152,8 @@ export function load(store: Store | null = safeStore()): Loaded {
 }
 
 let lastSaved = ''
+/** Вызывается после каждого сохранения — приложение на iPhone дублирует данные в системное хранилище. */
+export const saveHooks: ((json: string) => void)[] = []
 export function save(data: Data, store: Store | null = safeStore()): boolean {
   if (!store) return false
   const json = JSON.stringify(data)
@@ -164,6 +166,7 @@ export function save(data: Data, store: Store | null = safeStore()): boolean {
     // Не хватило места на две копии — жертвуем запасной, основная важнее.
     try { store.removeItem?.(BACKUP_KEY) } catch { /* */ }
   }
+  for (const hook of saveHooks) { try { hook(json) } catch { /* дубль — не главное */ } }
   try {
     store.setItem(STORAGE_KEY, json)
     lastSaved = json

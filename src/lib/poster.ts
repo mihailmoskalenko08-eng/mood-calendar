@@ -204,6 +204,10 @@ let pending: { file: File; title: string } | null = null
  * тогда покажите кнопку, которая вызовет sharePending() новым нажатием.
  */
 export async function shareOrDownload(blob: Blob, filename: string, title: string): Promise<ShareResult> {
+  if (__NATIVE__) {
+    const { shareFileNative } = await import('../native')
+    return shareFileNative(blob, filename, title)
+  }
   const file = new File([blob], filename, { type: blob.type })
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
   if (nav.share && nav.canShare?.({ files: [file] })) {

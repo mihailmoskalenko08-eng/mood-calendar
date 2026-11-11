@@ -7,14 +7,21 @@ import '@fontsource/cormorant-garamond/latin-500-italic.css'
 import '@fontsource/cormorant-garamond/cyrillic-600.css'
 import '@fontsource/cormorant-garamond/latin-600.css'
 import './styles.css'
-import { App } from './app'
-import { flushSave, rememberSession, showToast } from './state'
 
-render(<App />, document.getElementById('root')!)
+async function start() {
+  // В приложении на iPhone сначала поднимаем данные из системного хранилища, потом — всё остальное
+  if (__NATIVE__) await (await import('./native')).prepareNative()
+  const { App } = await import('./app')
+  render(<App />, document.getElementById('root')!)
+  if (!__NATIVE__) registerServiceWorker()
+}
+start()
 
 // Работа без интернета. Новая версия скачивается в фоне. Перезагрузка — только когда приложение свёрнуто
 // и никто не печатает; перед ней открытый день и время ухода запоминаются, чтобы вернуться туда же без кода.
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return
+  const { flushSave, rememberSession, showToast } = await import('./state')
   import('virtual:pwa-register').then(({ registerSW }) => {
     let ready = false
     let reloadPending = false
