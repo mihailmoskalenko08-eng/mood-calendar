@@ -306,7 +306,8 @@ export function deleteTag(id: string): () => void {
     return { ...d, tags: d.tags.filter(t => t.id !== id), entries }
   })
   return () => update(d => {
-    // Вернуть метку и её отметки, не трогая остальные изменения
+    // Вернуть метку и её отметки, не трогая остальные изменения (повторная отмена ничего не делает)
+    if (d.tags.some(t => t.id === id)) return d
     const entries = { ...d.entries }
     for (const [k, e] of Object.entries(before.entries)) {
       if (e.tags?.includes(id) && entries[k] && !entries[k].tags?.includes(id)) {
