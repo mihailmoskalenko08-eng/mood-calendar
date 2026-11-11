@@ -25,6 +25,20 @@
 > Если что-то уже отметили в Safari — «Ещё → Данные → Сохранить копию», затем «Загрузить копию» в приложении
 > (или прямо на первом экране: «Уже вели „Оттенки“? Загрузить копию»).
 
+## Приложение для iPhone (SideStore)
+
+Та же программа в виде настоящего приложения. Каждое изменение само собирается на GitHub в файл
+[Ottenki.ipa](https://github.com/mihailmoskalenko08-eng/mood-calendar/releases/tag/ios-latest) — без подписи;
+подписывает его SideStore вашим Apple ID. Подпись живёт 7 дней, SideStore продлевает её сам.
+
+1. Один раз поставьте SideStore с компьютера по [официальной инструкции](https://docs.sidestore.io/docs/installation/prerequisites)
+   (iTunes + iloader на Windows, LocalDevVPN на iPhone).
+2. На iPhone откройте [страницу релиза](https://github.com/mihailmoskalenko08-eng/mood-calendar/releases/tag/ios-latest)
+   в Safari, скачайте Ottenki.ipa (он попадёт в «Файлы» → «Загрузки»).
+3. В SideStore: включите LocalDevVPN → «My Apps» → «+» → выберите Ottenki.ipa.
+
+Данные приложения и веб-версии с иконки хранятся отдельно: перенос — «Сохранить копию» в одной и «Загрузить копию» в другой.
+
 ## Что умеет
 
 **День**
@@ -79,6 +93,8 @@ npx vite preview --port 4173 &   # затем:
 npm run e2e          # сквозные проверки в Chromium на экране iPhone 17
 npm run shots        # скриншоты в shots/ (npm run shots -- dark — тёмная тема)
 npm run icons        # иконки и заставки запуска из SVG
+node scripts/ios-assets.cjs        # иконка и заставка приложения для iPhone
+NATIVE=1 npm run build && npx cap sync ios   # веб-часть для приложения (сборка .ipa — .github/workflows/ios.yml)
 ```
 
 Vite + Preact + @preact/signals + TypeScript, без UI-библиотек. Шрифты Cormorant Garamond и Onest лежат
