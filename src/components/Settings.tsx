@@ -37,6 +37,7 @@ export function Settings() {
       <TagsEditor />
       <Look />
       {__NATIVE__ ? <NativeReminder /> : <Reminder />}
+      {__NATIVE__ && <WidgetCheck />}
       <PinSection />
       <DataSection />
       <About />
@@ -500,6 +501,24 @@ function NativeReminder() {
         </label>
       )}
       <p class="muted card-sub">Если день уже отмечен — напоминания не будет.</p>
+    </div>
+  )
+}
+
+/** Проверка связи с виджетом (приложение для iPhone). */
+function WidgetCheck() {
+  return (
+    <div class="card">
+      <h2 class="card-title">Виджет</h2>
+      <p class="muted card-sub">Долгое нажатие на рабочий стол → «+» → «Оттенки». Если виджет пустой — нажмите «Проверить» и пришлите текст.</p>
+      <button class="pill-btn ghost" onClick={async () => {
+        const { widgetStatus } = await import('../native')
+        const r = await widgetStatus()
+        if (!r) { showToast('В этой сборке нет виджета — поставьте Ottenki-widget.ipa', undefined, 8000); return }
+        showToast(r.shared
+          ? `Виджет подключён, данные отправлены (${r.group})`
+          : `Нет доступа к общей папке: ${r.group}; в подписи: ${(r.provisioned ?? []).join(', ') || 'нет групп'}`, undefined, 12000)
+      }}>Проверить</button>
     </div>
   )
 }

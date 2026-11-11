@@ -16,18 +16,48 @@ struct Payload: Decodable {
 }
 
 enum Store {
-    static let fallbackGroup = "group.io.github.mihailmoskalenko08.ottenki"
-    static var group: String {
+    static func load() -> Payload? {
+        guard let json = UserDefaults(suiteName: OttenkiAppGroup.id)?.string(forKey: "widget"),
+              let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(Payload.self, from: data)
+    }
+}
+
+/// Имя общей App Group, под которым приложение на самом деле подписано.
+/// Подписчики (iloader, SideStore, AltStore) переименовывают группу, поэтому ищем по порядку:
+/// 1) ALTAppGroups в Info.plist (SideStore/AltStore); 2) права из профиля подписи embedded.mobileprovision;
+/// 3) group.<id основного приложения> (так называет iloader); 4) исходное имя.
+enum OttenkiAppGroup {
+    static let fallback = "group.io.github.mihailmoskalenko08.ottenki"
+
+    static var id: String { cached }
+    private static let cached: String = resolve()
+
+    private static func resolve() -> String {
         if let groups = Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String], let first = groups.first {
             return first
         }
-        return fallbackGroup
+        if let first = provisionedGroups().first {
+            return first
+        }
+        if var bid = Bundle.main.bundleIdentifier {
+            if bid.hasSuffix(".widget") { bid.removeLast(".widget".count) }
+            return "group." + bid
+        }
+        return fallback
     }
 
-    static func load() -> Payload? {
-        guard let json = UserDefaults(suiteName: group)?.string(forKey: "widget"),
-              let data = json.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(Payload.self, from: data)
+    /// Группы из прав профиля подписи, вложенного в пакет.
+    static func provisionedGroups() -> [String] {
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url),
+              let start = data.range(of: Data("<?xml".utf8)),
+              let end = data.range(of: Data("</plist>".utf8), in: start.lowerBound..<data.endIndex) else { return [] }
+        let xml = data.subdata(in: start.lowerBound..<end.upperBound)
+        guard let plist = try? PropertyListSerialization.propertyList(from: xml, format: nil) as? [String: Any],
+              let ent = plist["Entitlements"] as? [String: Any],
+              let groups = ent["com.apple.security.application-groups"] as? [String] else { return [] }
+        return groups
     }
 }
 

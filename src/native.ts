@@ -145,7 +145,15 @@ export async function startReminders() {
 // В сборке с виджетом приложение отдаёт ему цвета последних шести недель (без заметок).
 // В обычной сборке плагина нет — вызов просто не срабатывает.
 
-interface WidgetBridgePlugin { update(o: { json: string }): Promise<{ ok: boolean; group: string }> }
+interface WidgetStatus { ok: boolean; group: string; shared?: boolean; provisioned?: string[] }
+interface WidgetBridgePlugin { update(o: { json: string }): Promise<WidgetStatus> }
+
+let pushNow: (() => Promise<WidgetStatus | null>) | null = null
+
+/** Отправить данные виджету сейчас и вернуть, что ответило приложение (для проверки в настройках). */
+export async function widgetStatus(): Promise<WidgetStatus | null> {
+  return pushNow ? pushNow() : null
+}
 
 export async function startWidget() {
   const { registerPlugin } = await import('@capacitor/core')
@@ -156,7 +164,7 @@ export async function startWidget() {
   const bridge = registerPlugin<WidgetBridgePlugin>('WidgetBridge')
   let timer: ReturnType<typeof setTimeout> | undefined
   let last = ''
-  const push = () => {
+  const payload = () => {
     const d = data.value
     const today = todayKey()
     const byId = new Map(d.levels.map(l => [l.id, l]))
@@ -167,11 +175,15 @@ export async function startWidget() {
       const l = e ? byId.get(e.level) : undefined
       if (l) days[k] = { c: l.color, n: l.name }
     }
-    const json = JSON.stringify({ days, streak: currentStreak(d, today) })
+    return JSON.stringify({ days, streak: currentStreak(d, today) })
+  }
+  const push = () => {
+    const json = payload()
     if (json === last) return
     last = json
     bridge.update({ json }).catch(() => {})
   }
+  pushNow = () => bridge.update({ json: payload() }).catch(() => null)
   effect(() => {
     void data.value
     clearTimeout(timer)
