@@ -140,3 +140,42 @@ export async function startReminders() {
     if (document.visibilityState === 'visible') { lastKey = ''; run() }
   })
 }
+
+// ——— Виджет ———
+// В сборке с виджетом приложение отдаёт ему цвета последних шести недель (без заметок).
+// В обычной сборке плагина нет — вызов просто не срабатывает.
+
+interface WidgetBridgePlugin { update(o: { json: string }): Promise<{ ok: boolean; group: string }> }
+
+export async function startWidget() {
+  const { registerPlugin } = await import('@capacitor/core')
+  const { effect } = await import('@preact/signals')
+  const { data } = await import('./state')
+  const { currentStreak } = await import('./lib/stats')
+  const { addDays, todayKey } = await import('./lib/dates')
+  const bridge = registerPlugin<WidgetBridgePlugin>('WidgetBridge')
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let last = ''
+  const push = () => {
+    const d = data.value
+    const today = todayKey()
+    const byId = new Map(d.levels.map(l => [l.id, l]))
+    const days: Record<string, { c: string; n: string }> = {}
+    for (let i = 0; i < 42; i++) {
+      const k = addDays(today, -i)
+      const e = d.entries[k]
+      const l = e ? byId.get(e.level) : undefined
+      if (l) days[k] = { c: l.color, n: l.name }
+    }
+    const json = JSON.stringify({ days, streak: currentStreak(d, today) })
+    if (json === last) return
+    last = json
+    bridge.update({ json }).catch(() => {})
+  }
+  effect(() => {
+    void data.value
+    clearTimeout(timer)
+    timer = setTimeout(push, 1000)
+  })
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { last = ''; push() } })
+}

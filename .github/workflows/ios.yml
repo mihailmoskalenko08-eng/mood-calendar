@@ -13,6 +13,11 @@ concurrency:
 jobs:
   build:
     runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        # plain — основное приложение; widget — то же с виджетом (отдельный файл, если подписчик не справится с виджетом)
+        variant: [plain, widget]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,6 +29,11 @@ jobs:
       - name: Веб-часть для приложения
         run: NATIVE=1 npm run build
       - run: npx cap sync ios
+      - name: Добавить виджет в проект
+        if: matrix.variant == 'widget'
+        run: |
+          sudo gem install xcodeproj --no-document
+          ruby ios/widget/add-widget.rb
       - name: Сборка Xcode без подписи
         run: |
           xcodebuild -version
@@ -37,25 +47,32 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             -quiet build
+      - name: Подпись «пустышкой» с правами App Group (подписчик возьмёт права отсюда)
+        if: matrix.variant == 'widget'
+        run: |
+          APP=build/Build/Products/Release-iphoneos/App.app
+          ls "$APP/PlugIns"
+          codesign -f -s - --entitlements ios/widget/OttenkiWidget/OttenkiWidget.entitlements "$APP/PlugIns/OttenkiWidget.appex"
+          codesign -f -s - --entitlements ios/widget/App.entitlements "$APP"
+          codesign -d --entitlements - "$APP" || true
       - name: Упаковка .ipa
         run: |
+          NAME=${{ matrix.variant == 'widget' && 'Ottenki-widget.ipa' || 'Ottenki.ipa' }}
+          echo "IPA=$NAME" >> $GITHUB_ENV
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/App.app Payload/
-          zip -qry Ottenki.ipa Payload
-          ls -la Ottenki.ipa
+          zip -qry "$NAME" Payload
+          ls -la "$NAME"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ottenki-ipa
-          path: Ottenki.ipa
+          name: ${{ env.IPA }}
+          path: ${{ env.IPA }}
       - name: Выложить в релиз «ios-latest»
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          NOTES="Сборка ${{ github.run_number }} (версия $VERSION), коммит ${GITHUB_SHA::7}. Откройте эту страницу на iPhone, скачайте Ottenki.ipa и откройте его в SideStore."
-          if gh release view ios-latest >/dev/null 2>&1; then
-            gh release upload ios-latest Ottenki.ipa --clobber
-            gh release edit ios-latest --notes "$NOTES"
-          else
-            gh release create ios-latest Ottenki.ipa --title "Оттенки для iPhone" --notes "$NOTES" --prerelease
-          fi
+          NOTES="Сборка ${{ github.run_number }} (версия $VERSION), коммит ${GITHUB_SHA::7}. Ottenki.ipa — основное приложение, Ottenki-widget.ipa — то же с виджетом на рабочий стол. Ставится через iloader (Import IPA) или SideStore."
+          gh release view ios-latest >/dev/null 2>&1 || gh release create ios-latest --title "Оттенки для iPhone" --notes "$NOTES" --prerelease || true
+          gh release upload ios-latest "$IPA" --clobber
+          gh release edit ios-latest --notes "$NOTES"

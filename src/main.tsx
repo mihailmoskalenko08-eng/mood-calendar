@@ -25,7 +25,11 @@ async function start() {
   }
   const { App } = await import('./app')
   render(<App />, root)
-  if (__NATIVE__) (await import('./native')).startReminders()
+  if (__NATIVE__) {
+    const native = await import('./native')
+    native.startReminders()
+    native.startWidget()
+  }
   else registerServiceWorker()
 }
 start()
