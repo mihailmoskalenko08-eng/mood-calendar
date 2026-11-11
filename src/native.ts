@@ -145,7 +145,7 @@ export async function startReminders() {
 // В сборке с виджетом приложение отдаёт ему цвета последних шести недель (без заметок).
 // В обычной сборке плагина нет — вызов просто не срабатывает.
 
-interface WidgetStatus { ok: boolean; group: string; shared?: boolean; provisioned?: string[] }
+interface WidgetStatus { ok: boolean; group: string; shared?: boolean; provisioned?: string[]; error?: string }
 interface WidgetBridgePlugin { update(o: { json: string }): Promise<WidgetStatus> }
 
 let pushNow: (() => Promise<WidgetStatus | null>) | null = null
@@ -183,7 +183,7 @@ export async function startWidget() {
     last = json
     bridge.update({ json }).catch(() => {})
   }
-  pushNow = () => bridge.update({ json: payload() }).catch(() => null)
+  pushNow = () => bridge.update({ json: payload() }).catch(e => ({ ok: false, group: '', error: String((e as Error)?.message ?? e) }))
   effect(() => {
     void data.value
     clearTimeout(timer)

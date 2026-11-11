@@ -18,6 +18,11 @@ storyboard = File.join(app_dir, 'Base.lproj', 'Main.storyboard')
 sb = File.read(storyboard)
 sb.sub!('customClass="CAPBridgeViewController" customModule="Capacitor"', 'customClass="MainViewController" customModule="App" customModuleProvider="target"')
 File.write(storyboard, sb)
+# Capacitor 8 создаёт главный экран в SceneDelegate, а не по раскладке — меняем и там
+scene = File.join(app_dir, 'SceneDelegate.swift')
+sd = File.read(scene)
+sd.sub!('window?.rootViewController = CAPBridgeViewController()', 'window?.rootViewController = MainViewController()') or abort 'SceneDelegate: не найден CAPBridgeViewController()'
+File.write(scene, sd)
 
 project = Xcodeproj::Project.open(File.join(root, 'App', 'App.xcodeproj'))
 app = project.targets.find { |t| t.name == 'App' } or abort 'нет цели App'

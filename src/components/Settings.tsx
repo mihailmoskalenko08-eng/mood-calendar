@@ -514,7 +514,7 @@ function WidgetCheck() {
       <button class="pill-btn ghost" onClick={async () => {
         const { widgetStatus } = await import('../native')
         const r = await widgetStatus()
-        if (!r) { showToast('В этой сборке нет виджета — поставьте Ottenki-widget.ipa', undefined, 8000); return }
+        if (!r || r.error) { showToast(`Приложение не связалось с виджетом${r?.error ? `: ${r.error}` : ''}. Если стоит Ottenki.ipa — нужен Ottenki-widget.ipa`, undefined, 10000); return }
         showToast(r.shared
           ? `Виджет подключён, данные отправлены (${r.group})`
           : `Нет доступа к общей папке: ${r.group}; в подписи: ${(r.provisioned ?? []).join(', ') || 'нет групп'}`, undefined, 12000)
